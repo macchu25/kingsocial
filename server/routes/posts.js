@@ -1,0 +1,344 @@
+const express = require('express');
+const router = express.Router();
+const mongoose = require('mongoose');
+const Post = require('../models/Post');
+const User = require('../models/User');
+const Notification = require('../models/Notification');
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+// Middleware to verify token
+const verifyToken = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1] || req.headers.authorization;
+
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: 'Không có token xác thực'
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.userId = decoded.userId;
+    req.username = decoded.username;
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: 'Token không hợp lệ'
+    });
+  }
+};
+
+// Get all posts
+router.get('/', verifyToken, async (req, res) => {
+  try {
+    const posts = await Post.find()
+      .sort({ createdAt: -1 })
+      .populate('userId', 'username name avatar')
+      .lean();
+
+    const formattedPosts = await Promise.all(posts.map(async (post) => {
+      // Get user info if userId is populated
+      let username = post.username;
+      let userAvatar = post.userAvatar || '';
+      
+      if (post.userId && typeof post.userId === 'object') {
+        username = post.userId.username || post.username;
+        userAvatar = post.userId.avatar || post.userAvatar || '';
+      }
+
+      return {
+        id: post._id.toString(),
+        userId: post.userId?._id?.toString() || post.userId?.toString() || post.userId,
+        username: username,
+        userAvatar: userAvatar,
+        image: post.image,
+        caption: post.caption || '',
+        likes: post.likes?.length || 0,
+        isLiked: post.likes?.some(like => like.toString() === req.userId) || false,
+        comments: post.comments?.length || 0,
+        commentsList: post.comments?.slice(-2).map(comment => ({
+          id: comment._id?.toString() || comment._id,
+          username: comment.username,
+          text: comment.text
+        })) || [],
+        createdAt: post.createdAt
+      };
+    }));
+
+    res.json({
+      success: true,
+      posts: formattedPosts
+    });
+  } catch (error) {
+    console.error('Get posts error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server. Vui lòng thử lại sau.'
+    });
+  }
+});
+
+// Create new post
+router.post('/create', verifyToken, async (req, res) => {
+  try {
+    const { image, caption } = req.body;
+
+    if (!image) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng chọn ảnh'
+      });
+    }
+
+    if (caption && caption.length > 2200) {
+      return res.status(400).json({
+        success: false,
+        message: 'Caption không được quá 2200 ký tự'
+      });
+    }
+
+    // Get user info
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy người dùng'
+      });
+    }
+
+    const post = new Post({
+      userId: req.userId,
+      username: user.username,
+      userAvatar: user.avatar || '',
+      image,
+      caption: caption || '',
+      likes: [],
+      comments: []
+    });
+
+    await post.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Đăng bài thành công!',
+      post: {
+        id: post._id,
+        userId: post.userId,
+        username: post.username,
+        userAvatar: post.userAvatar,
+        image: post.image,
+        caption: post.caption,
+        likes: 0,
+        isLiked: false,
+        comments: 0,
+        commentsList: [],
+        createdAt: post.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Create post error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server. Vui lòng thử lại sau.'
+    });
+  }
+});
+
+// Like/Unlike post
+router.post('/:postId/like', verifyToken, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.postId);
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy bài viết'
+      });
+    }
+
+    const userId = req.userId;
+    const isLiked = post.likes && post.likes.some(like => like.toString() === userId);
+
+    if (isLiked) {
+      // Unlike
+      if (post.likes) {
+        post.likes = post.likes.filter(like => like.toString() !== userId);
+      }
+    } else {
+      // Like
+      if (!post.likes) {
+        post.likes = [];
+      }
+      post.likes.push(userId);
+      
+      // Create notification for post owner (if not own post)
+      if (post.userId.toString() !== userId) {
+        try {
+          const user = await User.findById(userId);
+          if (user) {
+            const notification = new Notification({
+              userId: post.userId,
+              type: 'like',
+              fromUserId: userId,
+              fromUsername: user.username,
+              fromUserAvatar: user.avatar || '',
+              postId: post._id
+            });
+            await notification.save();
+            console.log('✅ Like notification created:', notification._id);
+          }
+        } catch (notifError) {
+          console.error('❌ Create like notification error:', notifError);
+          // Don't fail the like action if notification fails
+        }
+      }
+    }
+
+    await post.save();
+
+    res.json({
+      success: true,
+      likes: post.likes.length,
+      isLiked: !isLiked
+    });
+  } catch (error) {
+    console.error('Like post error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server. Vui lòng thử lại sau.'
+    });
+  }
+});
+
+// Add comment
+router.post('/:postId/comment', verifyToken, async (req, res) => {
+  try {
+    const { text } = req.body;
+
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng nhập nội dung bình luận'
+      });
+    }
+
+    if (text.length > 500) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bình luận không được quá 500 ký tự'
+      });
+    }
+
+    const post = await Post.findById(req.params.postId);
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy bài viết'
+      });
+    }
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy người dùng'
+      });
+    }
+
+    post.comments.push({
+      userId: req.userId,
+      username: user.username,
+      text: text.trim()
+    });
+
+    // Create notification for post owner (if not own post)
+    if (post.userId.toString() !== req.userId) {
+      try {
+        const notification = new Notification({
+          userId: post.userId,
+          type: 'comment',
+          fromUserId: req.userId,
+          fromUsername: user.username,
+          fromUserAvatar: user.avatar || '',
+          postId: post._id
+        });
+        await notification.save();
+        console.log('✅ Comment notification created:', notification._id);
+      } catch (notifError) {
+        console.error('❌ Create comment notification error:', notifError);
+        // Don't fail the comment action if notification fails
+      }
+    }
+
+    await post.save();
+
+    const newComment = post.comments[post.comments.length - 1];
+
+    res.json({
+      success: true,
+      message: 'Bình luận thành công!',
+      comment: {
+        id: newComment._id,
+        username: newComment.username,
+        text: newComment.text
+      },
+      commentsCount: post.comments.length
+    });
+  } catch (error) {
+    console.error('Comment post error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server. Vui lòng thử lại sau.'
+    });
+  }
+});
+
+// Get posts by user ID
+router.get('/user/:userId', verifyToken, async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    
+    // Validate userId format
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID người dùng không hợp lệ'
+      });
+    }
+
+    const posts = await Post.find({ userId: userId })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const formattedPosts = posts.map(post => ({
+      id: post._id.toString(),
+      userId: post.userId.toString(),
+      username: post.username,
+      userAvatar: post.userAvatar || '',
+      image: post.image,
+      caption: post.caption || '',
+      likes: post.likes?.length || 0,
+      isLiked: post.likes?.some(like => like.toString() === req.userId) || false,
+      comments: post.comments?.length || 0,
+      createdAt: post.createdAt
+    }));
+
+    res.json({
+      success: true,
+      posts: formattedPosts,
+      count: formattedPosts.length
+    });
+  } catch (error) {
+    console.error('Get user posts error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server. Vui lòng thử lại sau.'
+    });
+  }
+});
+
+module.exports = router;
+
