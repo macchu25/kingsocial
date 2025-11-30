@@ -8,6 +8,7 @@ const postsRoutes = require('./routes/posts');
 const followRoutes = require('./routes/follow');
 const usersRoutes = require('./routes/users');
 const storiesRoutes = require('./routes/stories');
+const notesRoutes = require('./routes/notes');
 const notificationsRoutes = require('./routes/notifications');
 
 dotenv.config();
@@ -37,6 +38,7 @@ app.use('/api/posts', postsRoutes);
 app.use('/api/follow', followRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/stories', storiesRoutes);
+app.use('/api/notes', notesRoutes);
 app.use('/api/notifications', notificationsRoutes);
 
 // Health check

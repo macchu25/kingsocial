@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,6 +8,9 @@ import {
   ScrollView,
   Alert,
   TouchableOpacity,
+  Image,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import Input from '../components/Input';
@@ -17,12 +20,16 @@ import { storage } from '../utils/storage';
 import { validateForm } from '../utils/validation';
 import { handleApiError } from '../utils/errorHandler';
 
+const { height } = Dimensions.get('window');
+
 const LoginScreen = ({ onLoginSuccess, onSwitchToRegister }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
+    rememberMe: false,
   });
+  const slideAnim = useRef(new Animated.Value(0)).current;
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -57,49 +64,106 @@ const LoginScreen = ({ onLoginSuccess, onSwitchToRegister }) => {
     }
   };
 
+  useEffect(() => {
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  const handleSwitchToRegister = () => {
+    Animated.timing(slideAnim, {
+      toValue: -height * 0.3,
+      duration: 400,
+      useNativeDriver: true,
+    }).start(() => {
+      onSwitchToRegister();
+    });
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <StatusBar style="auto" />
-      <ScrollView
-        contentContainerStyle={styles.scrollContainer}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.formContainer}>
-          <Text style={styles.title}>Đăng nhập</Text>
+      <StatusBar style="light" />
+      <View style={styles.container}>
+        {/* Pink Header with Logo */}
+        <View style={styles.headerContainer}>
+          <Image
+            source={require('../asset/lginse.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </View>
+
+        {/* White Form Container with Animation */}
+        <Animated.View
+          style={[
+            styles.formContainer,
+            {
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.titleContainer}>
+              <Text style={styles.title}>Sign in</Text>
+              <View style={styles.titleUnderline} />
+            </View>
 
           <Input
-            placeholder="Email"
+            label="Email"
+            placeholder="demo@email.com"
             value={formData.email}
             onChangeText={(value) => handleInputChange('email', value)}
             keyboardType="email-address"
           />
 
           <Input
-            placeholder="Mật khẩu"
+            label="Password"
+            placeholder="enter your password"
             value={formData.password}
             onChangeText={(value) => handleInputChange('password', value)}
             secureTextEntry
           />
 
+          <View style={styles.optionsContainer}>
+            <View style={styles.rememberMeContainer}>
+              <View style={styles.checkbox}>
+                {formData.rememberMe && <View style={styles.checkboxInner} />}
+              </View>
+              <TouchableOpacity onPress={() => handleInputChange('rememberMe', !formData.rememberMe)}>
+                <Text style={styles.rememberMeText}>Remember Me</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity>
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
+          </View>
+
           <Button
-            title="Đăng nhập"
+            title="Login"
             onPress={handleSubmit}
             loading={loading}
           />
 
-          <TouchableOpacity
-            style={styles.switchButton}
-            onPress={onSwitchToRegister}
-          >
-            <Text style={styles.switchText}>
-              Chưa có tài khoản? Đăng ký
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+            <View style={styles.switchContainer}>
+              <Text style={styles.switchText}>
+                Don't have an Account?{' '}
+              </Text>
+              <TouchableOpacity onPress={handleSwitchToRegister}>
+                <Text style={styles.switchLink}>Sign up</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </Animated.View>
+      </View>
     </KeyboardAvoidingView>
   );
 };
@@ -107,40 +171,102 @@ const LoginScreen = ({ onLoginSuccess, onSwitchToRegister }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFB6C1',
   },
-  scrollContainer: {
-    flexGrow: 1,
+  headerContainer: {
+    height: height * 0.35,
+    backgroundColor: '#FFB6C1',
     justifyContent: 'center',
-    padding: 20,
+    alignItems: 'center',
+    paddingTop: 60,
+  },
+  logo: {
+    width: 220,
+    height: 100,
   },
   formContainer: {
+    flex: 1,
     backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 20,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingTop: 30,
+    paddingHorizontal: 25,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: -3,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowRadius: 5,
+    elevation: 10,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
+  titleContainer: {
+    marginBottom: 30,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
-    marginBottom: 30,
-    textAlign: 'center',
-    color: '#333',
+    color: '#000',
+    marginBottom: 5,
   },
-  switchButton: {
-    marginTop: 20,
+  titleUnderline: {
+    width: 50,
+    height: 3,
+    backgroundColor: '#FFB6C1',
+    marginTop: 5,
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 20,
   },
   switchText: {
-    color: '#007AFF',
+    color: '#666',
     fontSize: 14,
+  },
+  switchLink: {
+    color: '#FFB6C1',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  optionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  rememberMeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#FFB6C1',
+    marginRight: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#FFB6C1',
+  },
+  rememberMeText: {
+    fontSize: 14,
+    color: '#000',
+  },
+  forgotPasswordText: {
+    fontSize: 14,
+    color: '#FFB6C1',
   },
 });
 

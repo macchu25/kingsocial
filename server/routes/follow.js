@@ -160,6 +160,42 @@ router.get('/:userId/stats', verifyToken, async (req, res) => {
   }
 });
 
+// Get following list
+router.get('/following/list', verifyToken, async (req, res) => {
+  try {
+    const currentUser = await User.findById(req.userId);
+    
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy người dùng'
+      });
+    }
+
+    const followingIds = currentUser.following || [];
+    const followingUsers = await User.find({ _id: { $in: followingIds } })
+      .select('_id username avatar')
+      .lean();
+
+    const followingList = followingUsers.map(user => ({
+      id: user._id.toString(),
+      username: user.username,
+      avatar: user.avatar || ''
+    }));
+
+    res.json({
+      success: true,
+      following: followingList
+    });
+  } catch (error) {
+    console.error('Get following list error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server. Vui lòng thử lại sau.'
+    });
+  }
+});
+
 module.exports = router;
 
 

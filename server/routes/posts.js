@@ -60,11 +60,25 @@ router.get('/', verifyToken, async (req, res) => {
         likes: post.likes?.length || 0,
         isLiked: post.likes?.some(like => like.toString() === req.userId) || false,
         comments: post.comments?.length || 0,
-        commentsList: post.comments?.slice(-2).map(comment => ({
-          id: comment._id?.toString() || comment._id,
-          username: comment.username,
-          text: comment.text
-        })) || [],
+        commentsList: await Promise.all((post.comments?.slice(-2) || []).map(async (comment) => {
+          let userAvatar = null;
+          if (comment.userId) {
+            try {
+              const commentUser = await User.findById(comment.userId).lean();
+              userAvatar = (commentUser?.avatar && commentUser.avatar.trim() !== '') ? commentUser.avatar : null;
+            } catch (err) {
+              // Silent fail
+            }
+          }
+          return {
+            id: comment._id?.toString() || comment._id,
+            userId: comment.userId?.toString() || comment.userId,
+            username: comment.username,
+            text: comment.text || '',
+            image: comment.image || '',
+            avatar: userAvatar
+          };
+        })),
         createdAt: post.createdAt
       };
     }));
@@ -216,16 +230,16 @@ router.post('/:postId/like', verifyToken, async (req, res) => {
 // Add comment
 router.post('/:postId/comment', verifyToken, async (req, res) => {
   try {
-    const { text } = req.body;
+    const { text, image } = req.body;
 
-    if (!text || text.trim().length === 0) {
+    if ((!text || text.trim().length === 0) && (!image || image.trim().length === 0)) {
       return res.status(400).json({
         success: false,
-        message: 'Vui lòng nhập nội dung bình luận'
+        message: 'Vui lòng nhập nội dung bình luận hoặc chọn ảnh'
       });
     }
 
-    if (text.length > 500) {
+    if (text && text.length > 500) {
       return res.status(400).json({
         success: false,
         message: 'Bình luận không được quá 500 ký tự'
@@ -251,7 +265,8 @@ router.post('/:postId/comment', verifyToken, async (req, res) => {
     post.comments.push({
       userId: req.userId,
       username: user.username,
-      text: text.trim()
+      text: text ? text.trim() : '',
+      image: image || ''
     });
 
     // Create notification for post owner (if not own post)
@@ -282,13 +297,140 @@ router.post('/:postId/comment', verifyToken, async (req, res) => {
       message: 'Bình luận thành công!',
       comment: {
         id: newComment._id,
+        userId: newComment.userId.toString(),
         username: newComment.username,
-        text: newComment.text
+        text: newComment.text || '',
+        image: newComment.image || '',
+        avatar: user.avatar || '',
+        createdAt: newComment.createdAt
       },
       commentsCount: post.comments.length
     });
   } catch (error) {
     console.error('Comment post error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server. Vui lòng thử lại sau.'
+    });
+  }
+});
+
+// Delete comment
+router.delete('/:postId/comment/:commentId', verifyToken, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.postId);
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy bài viết'
+      });
+    }
+
+    const comment = post.comments.id(req.params.commentId);
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy bình luận'
+      });
+    }
+
+    // Check permission: user can delete their own comment OR post owner can delete any comment
+    const isCommentOwner = comment.userId.toString() === req.userId.toString();
+    const isPostOwner = post.userId.toString() === req.userId.toString();
+
+    if (!isCommentOwner && !isPostOwner) {
+      return res.status(403).json({
+        success: false,
+        message: 'Bạn không có quyền xóa bình luận này'
+      });
+    }
+
+    comment.deleteOne();
+    await post.save();
+
+    res.json({
+      success: true,
+      message: 'Đã xóa bình luận',
+      commentsCount: post.comments.length
+    });
+  } catch (error) {
+    console.error('Delete comment error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server. Vui lòng thử lại sau.'
+    });
+  }
+});
+
+// Update comment
+router.put('/:postId/comment/:commentId', verifyToken, async (req, res) => {
+  try {
+    const { text, image } = req.body;
+
+    if ((!text || text.trim().length === 0) && (!image || image.trim().length === 0)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng nhập nội dung bình luận hoặc chọn ảnh'
+      });
+    }
+
+    if (text && text.length > 500) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bình luận không được quá 500 ký tự'
+      });
+    }
+
+    const post = await Post.findById(req.params.postId);
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy bài viết'
+      });
+    }
+
+    const comment = post.comments.id(req.params.commentId);
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy bình luận'
+      });
+    }
+
+    // Only comment owner can edit
+    if (comment.userId.toString() !== req.userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Bạn không có quyền chỉnh sửa bình luận này'
+      });
+    }
+
+    if (text !== undefined) {
+      comment.text = text ? text.trim() : '';
+    }
+    if (image !== undefined) {
+      comment.image = image || '';
+    }
+
+    await post.save();
+
+    const user = await User.findById(req.userId);
+
+    res.json({
+      success: true,
+      message: 'Đã cập nhật bình luận',
+      comment: {
+        id: comment._id.toString(),
+        userId: comment.userId.toString(),
+        username: comment.username,
+        text: comment.text || '',
+        image: comment.image || '',
+        avatar: user?.avatar || '',
+        createdAt: comment.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Update comment error:', error);
     res.status(500).json({
       success: false,
       message: 'Lỗi server. Vui lòng thử lại sau.'
@@ -333,6 +475,194 @@ router.get('/user/:userId', verifyToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Get user posts error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server. Vui lòng thử lại sau.'
+    });
+  }
+});
+
+// Get post by ID with all comments (must be after /user/:userId to avoid conflict)
+router.get('/:postId', verifyToken, async (req, res) => {
+  try {
+    const postId = req.params.postId;
+    
+    if (!mongoose.Types.ObjectId.isValid(postId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID bài viết không hợp lệ'
+      });
+    }
+
+    const post = await Post.findById(postId)
+      .populate('userId', 'username name avatar')
+      .lean();
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy bài viết'
+      });
+    }
+
+    // Get user info
+    let username = post.username;
+    let userAvatar = post.userAvatar || '';
+    
+    if (post.userId && typeof post.userId === 'object') {
+      username = post.userId.username || post.username;
+      userAvatar = post.userId.avatar || post.userAvatar || '';
+    }
+
+    // Format all comments with user avatars
+    const allComments = await Promise.all((post.comments || []).map(async (comment) => {
+      let userAvatar = null;
+      if (comment.userId) {
+        try {
+          const commentUser = await User.findById(comment.userId).lean();
+          userAvatar = (commentUser?.avatar && commentUser.avatar.trim() !== '') ? commentUser.avatar : null;
+        } catch (err) {
+          // Silent fail
+        }
+      }
+      return {
+        id: comment._id?.toString() || comment._id,
+        userId: comment.userId?.toString() || comment.userId,
+        username: comment.username,
+        text: comment.text || '',
+        image: comment.image || '',
+        avatar: userAvatar,
+        createdAt: comment.createdAt
+      };
+    }));
+
+    res.json({
+      success: true,
+      post: {
+        id: post._id.toString(),
+        userId: post.userId?._id?.toString() || post.userId?.toString() || post.userId,
+        username: username,
+        userAvatar: userAvatar,
+        image: post.image,
+        caption: post.caption || '',
+        likes: post.likes?.length || 0,
+        isLiked: post.likes?.some(like => like.toString() === req.userId) || false,
+        comments: post.comments?.length || 0,
+        commentsList: allComments,
+        createdAt: post.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Get post by ID error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server. Vui lòng thử lại sau.'
+    });
+  }
+});
+
+// Update post
+router.put('/:postId', verifyToken, async (req, res) => {
+  try {
+    const postId = req.params.postId;
+    const { caption } = req.body;
+
+    if (!postId || !mongoose.Types.ObjectId.isValid(postId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID bài viết không hợp lệ'
+      });
+    }
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy bài viết'
+      });
+    }
+
+    // Check if user owns this post
+    if (post.userId.toString() !== req.userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Bạn không có quyền chỉnh sửa bài viết này'
+      });
+    }
+
+    // Update caption if provided
+    if (caption !== undefined) {
+      if (caption.length > 2200) {
+        return res.status(400).json({
+          success: false,
+          message: 'Caption không được quá 2200 ký tự'
+        });
+      }
+      post.caption = caption || '';
+    }
+
+    await post.save();
+
+    res.json({
+      success: true,
+      message: 'Đã cập nhật bài viết',
+      post: {
+        id: post._id.toString(),
+        userId: post.userId.toString(),
+        username: post.username,
+        userAvatar: post.userAvatar,
+        image: post.image,
+        caption: post.caption,
+        likes: post.likes?.length || 0,
+        comments: post.comments?.length || 0,
+        createdAt: post.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Update post error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server. Vui lòng thử lại sau.'
+    });
+  }
+});
+
+// Delete post
+router.delete('/:postId', verifyToken, async (req, res) => {
+  try {
+    const postId = req.params.postId;
+    
+    if (!postId || !mongoose.Types.ObjectId.isValid(postId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID bài viết không hợp lệ'
+      });
+    }
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy bài viết'
+      });
+    }
+
+    // Check if user owns this post
+    if (post.userId.toString() !== req.userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Bạn không có quyền xóa bài viết này'
+      });
+    }
+
+    await Post.findByIdAndDelete(postId);
+
+    res.json({
+      success: true,
+      message: 'Đã xóa bài viết'
+    });
+  } catch (error) {
+    console.error('Delete post error:', error);
     res.status(500).json({
       success: false,
       message: 'Lỗi server. Vui lòng thử lại sau.'

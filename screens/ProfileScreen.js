@@ -23,9 +23,9 @@ import { handleApiError } from '../utils/errorHandler';
 const { width } = Dimensions.get('window');
 const POST_SIZE = (width - 4) / 3;
 
-const DEFAULT_AVATAR = 'https://via.placeholder.com/100/cccccc/ffffff?text=User';
+const DEFAULT_AVATAR = require('../asset/avt.jpg');
 
-const ProfileScreen = ({ user, currentUser, onLogout, onNavigateToHome, onEditProfile }) => {
+const ProfileScreen = ({ user, currentUser, isDarkMode = false, onLogout, onNavigateToHome, onEditProfile, onNavigateToSettings, onViewPost }) => {
   const [stats, setStats] = useState({
     posts: 0,
     followers: 0,
@@ -187,21 +187,21 @@ const ProfileScreen = ({ user, currentUser, onLogout, onNavigateToHome, onEditPr
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
+      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
       
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, isDarkMode && styles.headerDark]}>
         <View style={styles.headerLeft}>
           {!isOwnProfile && (
             <TouchableOpacity onPress={onNavigateToHome} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color="#000" />
+              <Ionicons name="arrow-back" size={24} color={isDarkMode ? "#fff" : "#000"} />
             </TouchableOpacity>
           )}
-          <Text style={styles.headerUsername}>{user?.username || 'username'}</Text>
+          <Text style={[styles.headerUsername, isDarkMode && styles.headerUsernameDark]}>{user?.username || 'username'}</Text>
           {isOwnProfile && (
             <TouchableOpacity>
-              <Ionicons name="chevron-down" size={16} color="#000" />
+              <Ionicons name="chevron-down" size={16} color={isDarkMode ? "#fff" : "#000"} />
             </TouchableOpacity>
           )}
         </View>
@@ -209,10 +209,10 @@ const ProfileScreen = ({ user, currentUser, onLogout, onNavigateToHome, onEditPr
           {isOwnProfile && (
             <>
               <TouchableOpacity style={styles.headerIconButton}>
-                <Ionicons name="add-outline" size={24} color="#000" />
+                <Ionicons name="add-outline" size={24} color={isDarkMode ? "#fff" : "#000"} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.headerIconButton} onPress={handleLogout}>
-                <Ionicons name="menu" size={24} color="#000" />
+              <TouchableOpacity style={styles.headerIconButton} onPress={onNavigateToSettings}>
+                <Ionicons name="settings-outline" size={24} color={isDarkMode ? "#fff" : "#000"} />
               </TouchableOpacity>
             </>
           )}
@@ -225,27 +225,29 @@ const ProfileScreen = ({ user, currentUser, onLogout, onNavigateToHome, onEditPr
           {/* Avatar */}
           <View style={styles.avatarContainer}>
             <Image
-              source={{
-                uri: user?.avatar || DEFAULT_AVATAR,
-              }}
+              source={
+                (user?.avatar && user.avatar.trim() !== '') 
+                  ? { uri: user.avatar }
+                  : DEFAULT_AVATAR
+              }
               style={styles.avatar}
-              defaultSource={{ uri: DEFAULT_AVATAR }}
+              defaultSource={DEFAULT_AVATAR}
             />
           </View>
 
           {/* Stats */}
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{stats.posts}</Text>
-              <Text style={styles.statLabel}>bài viết</Text>
+              <Text style={[styles.statNumber, isDarkMode && styles.statNumberDark]}>{stats.posts}</Text>
+              <Text style={[styles.statLabel, isDarkMode && styles.statLabelDark]}>bài viết</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{stats.followers.toLocaleString()}</Text>
-              <Text style={styles.statLabel}>người theo dõi</Text>
+              <Text style={[styles.statNumber, isDarkMode && styles.statNumberDark]}>{stats.followers.toLocaleString()}</Text>
+              <Text style={[styles.statLabel, isDarkMode && styles.statLabelDark]}>người theo dõi</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{stats.following}</Text>
-              <Text style={styles.statLabel}>đang theo dõi</Text>
+              <Text style={[styles.statNumber, isDarkMode && styles.statNumberDark]}>{stats.following}</Text>
+              <Text style={[styles.statLabel, isDarkMode && styles.statLabelDark]}>đang theo dõi</Text>
             </View>
           </View>
           {loading && (
@@ -255,11 +257,11 @@ const ProfileScreen = ({ user, currentUser, onLogout, onNavigateToHome, onEditPr
 
         {/* Bio */}
         <View style={styles.bioSection}>
-          <Text style={styles.bioName}>{user?.name || user?.username || 'Username'}</Text>
+          <Text style={[styles.bioName, isDarkMode && styles.bioNameDark]}>{user?.name || user?.username || 'Username'}</Text>
           {user?.bio ? (
-            <Text style={styles.bioText}>{user.bio}</Text>
+            <Text style={[styles.bioText, isDarkMode && styles.bioTextDark]}>{user.bio}</Text>
           ) : (
-            <Text style={styles.bioText}>
+            <Text style={[styles.bioText, isDarkMode && styles.bioTextDark]}>
               Chưa có tiểu sử. Nhấn "Chỉnh sửa trang cá nhân" để thêm.
             </Text>
           )}
@@ -270,25 +272,25 @@ const ProfileScreen = ({ user, currentUser, onLogout, onNavigateToHome, onEditPr
           {isOwnProfile ? (
             <>
               <TouchableOpacity
-                style={styles.editButton}
+                style={[styles.editButton, isDarkMode && styles.editButtonDark]}
                 onPress={onEditProfile}
               >
-                <Text style={styles.editButtonText}>Chỉnh sửa trang cá nhân</Text>
+                <Text style={[styles.editButtonText, isDarkMode && styles.editButtonTextDark]}>Chỉnh sửa trang cá nhân</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.shareButton}>
-                <Text style={styles.shareButtonText}>Chia sẻ trang cá nhân</Text>
+              <TouchableOpacity style={[styles.shareButton, isDarkMode && styles.shareButtonDark]}>
+                <Text style={[styles.shareButtonText, isDarkMode && styles.shareButtonTextDark]}>Chia sẻ trang cá nhân</Text>
               </TouchableOpacity>
             </>
           ) : (
             <TouchableOpacity
-              style={[styles.editButton, isFollowing && styles.unfollowButton]}
+              style={[styles.editButton, isFollowing && styles.unfollowButton, isDarkMode && styles.editButtonDark]}
               onPress={handleFollow}
               disabled={followingLoading}
             >
               {followingLoading ? (
-                <ActivityIndicator color={isFollowing ? "#000" : "#fff"} size="small" />
+                <ActivityIndicator color={isFollowing ? (isDarkMode ? "#fff" : "#000") : "#fff"} size="small" />
               ) : (
-                <Text style={[styles.editButtonText, isFollowing && styles.unfollowButtonText]}>
+                <Text style={[styles.editButtonText, isFollowing && styles.unfollowButtonText, isDarkMode && styles.editButtonTextDark]}>
                   {isFollowing ? 'Đang theo dõi' : 'Theo dõi'}
                 </Text>
               )}
@@ -307,13 +309,13 @@ const ProfileScreen = ({ user, currentUser, onLogout, onNavigateToHome, onEditPr
             <View style={styles.highlightCircle}>
               <Text style={styles.highlightPlus}>+</Text>
             </View>
-            <Text style={styles.highlightLabel}>Mới</Text>
+            <Text style={[styles.highlightLabel, isDarkMode && styles.highlightLabelDark]}>Mới</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.highlightItem}>
-            <View style={[styles.highlightCircle, styles.highlightCircleActive]}>
+            <View style={[styles.highlightCircle, styles.highlightCircleActive, isDarkMode && styles.highlightCircleActiveDark]}>
               <Text style={styles.highlightEmoji}>📸</Text>
             </View>
-            <Text style={styles.highlightLabel}>Highlight 1</Text>
+            <Text style={[styles.highlightLabel, isDarkMode && styles.highlightLabelDark]}>Highlight 1</Text>
           </TouchableOpacity>
         </ScrollView>
 
@@ -325,7 +327,12 @@ const ProfileScreen = ({ user, currentUser, onLogout, onNavigateToHome, onEditPr
         ) : posts.length > 0 ? (
           <View style={styles.postsGrid}>
             {posts.map((post) => (
-              <TouchableOpacity key={post.id} style={styles.postItem}>
+              <TouchableOpacity 
+                key={post.id} 
+                style={styles.postItem}
+                onPress={() => onViewPost && onViewPost(post)}
+                activeOpacity={0.8}
+              >
                 <Image
                   source={{ uri: post.image }}
                   style={styles.postImage}
@@ -336,7 +343,7 @@ const ProfileScreen = ({ user, currentUser, onLogout, onNavigateToHome, onEditPr
           </View>
         ) : (
           <View style={styles.emptyPostsContainer}>
-            <Text style={styles.emptyPostsText}>Chưa có bài viết nào</Text>
+            <Text style={[styles.emptyPostsText, isDarkMode && styles.emptyPostsTextDark]}>Chưa có bài viết nào</Text>
           </View>
         )}
       </ScrollView>
@@ -344,6 +351,7 @@ const ProfileScreen = ({ user, currentUser, onLogout, onNavigateToHome, onEditPr
       {/* Bottom Navigation */}
       <BottomNavigation
         user={user}
+        isDarkMode={isDarkMode}
         activeTab="profile"
         onTabChange={(tab) => {
           if (tab === 'home' && onNavigateToHome) {
@@ -360,6 +368,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
+  containerDark: {
+    backgroundColor: '#000',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -368,6 +379,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 0.5,
     borderBottomColor: '#dbdbdb',
+  },
+  headerDark: {
+    borderBottomColor: '#333',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -382,6 +396,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#000',
     marginRight: 5,
+  },
+  headerUsernameDark: {
+    color: '#fff',
   },
   dropdownIcon: {
     fontSize: 12,
@@ -426,10 +443,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#000',
   },
+  statNumberDark: {
+    color: '#fff',
+  },
   statLabel: {
     fontSize: 14,
     color: '#8e8e8e',
     marginTop: 2,
+  },
+  statLabelDark: {
+    color: '#999',
   },
   bioSection: {
     paddingHorizontal: 15,
@@ -441,10 +464,16 @@ const styles = StyleSheet.create({
     color: '#000',
     marginBottom: 5,
   },
+  bioNameDark: {
+    color: '#fff',
+  },
   bioText: {
     fontSize: 14,
     color: '#000',
     lineHeight: 20,
+  },
+  bioTextDark: {
+    color: '#fff',
   },
   actionButtons: {
     flexDirection: 'row',
@@ -459,10 +488,16 @@ const styles = StyleSheet.create({
     marginRight: 8,
     alignItems: 'center',
   },
+  editButtonDark: {
+    backgroundColor: '#333',
+  },
   editButtonText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#000',
+  },
+  editButtonTextDark: {
+    color: '#fff',
   },
   shareButton: {
     flex: 1,
@@ -472,10 +507,16 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     alignItems: 'center',
   },
+  shareButtonDark: {
+    backgroundColor: '#333',
+  },
   shareButtonText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#000',
+  },
+  shareButtonTextDark: {
+    color: '#fff',
   },
   unfollowButton: {
     backgroundColor: '#f0f0f0',
@@ -509,6 +550,9 @@ const styles = StyleSheet.create({
   highlightCircleActive: {
     borderColor: '#000',
   },
+  highlightCircleActiveDark: {
+    borderColor: '#fff',
+  },
   highlightPlus: {
     fontSize: 24,
     color: '#000',
@@ -520,6 +564,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#000',
   },
+  highlightLabelDark: {
+    color: '#fff',
+  },
   postsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -527,6 +574,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 0.5,
     borderTopColor: '#dbdbdb',
     paddingTop: 1,
+  },
+  postsGridDark: {
+    borderTopColor: '#333',
   },
   postItem: {
     width: POST_SIZE,
@@ -544,16 +594,25 @@ const styles = StyleSheet.create({
     borderTopWidth: 0.5,
     borderTopColor: '#dbdbdb',
   },
+  postsLoadingContainerDark: {
+    borderTopColor: '#333',
+  },
   emptyPostsContainer: {
     paddingVertical: 60,
     alignItems: 'center',
     borderTopWidth: 0.5,
     borderTopColor: '#dbdbdb',
   },
+  emptyPostsContainerDark: {
+    borderTopColor: '#333',
+  },
   emptyPostsText: {
     fontSize: 16,
     color: '#8e8e8e',
   },
+  emptyPostsTextDark: {
+    color: '#999',
+  },
 });
 
-export default ProfileScreen;
+export default React.memo(ProfileScreen);

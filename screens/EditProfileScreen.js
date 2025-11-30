@@ -19,7 +19,7 @@ import { profileService } from '../services/profileService';
 import { storage } from '../utils/storage';
 import { handleApiError } from '../utils/errorHandler';
 
-const DEFAULT_AVATAR = 'https://via.placeholder.com/100/cccccc/ffffff?text=User';
+const DEFAULT_AVATAR = require('../asset/avt.jpg');
 
 const EditProfileScreen = ({ user, onUpdate, onCancel }) => {
   const [loading, setLoading] = useState(false);
@@ -116,7 +116,7 @@ const EditProfileScreen = ({ user, onUpdate, onCancel }) => {
       const response = await profileService.updateProfile(
         formData.name,
         formData.bio,
-        formData.avatar || DEFAULT_AVATAR
+        formData.avatar || ''
       );
 
       if (response.success) {
@@ -165,11 +165,17 @@ const EditProfileScreen = ({ user, onUpdate, onCancel }) => {
               </View>
             ) : (
               <Image
-                source={{
-                  uri: selectedImage || formData.avatar || user?.avatar || DEFAULT_AVATAR,
-                }}
+                source={
+                  selectedImage 
+                    ? { uri: selectedImage }
+                    : (formData.avatar && formData.avatar.trim() !== '') 
+                      ? { uri: formData.avatar }
+                      : (user?.avatar && user.avatar.trim() !== '') 
+                        ? { uri: user.avatar }
+                        : DEFAULT_AVATAR
+                }
                 style={styles.avatar}
-                defaultSource={{ uri: DEFAULT_AVATAR }}
+                defaultSource={DEFAULT_AVATAR}
               />
             )}
             <TouchableOpacity

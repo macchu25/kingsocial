@@ -14,9 +14,9 @@ import { notificationService } from '../services/notificationService';
 
 const { width } = Dimensions.get('window');
 const PANEL_WIDTH = width * 0.85;
-const DEFAULT_AVATAR = 'https://via.placeholder.com/40/cccccc/ffffff?text=User';
+const DEFAULT_AVATAR = require('../asset/avt.jpg');
 
-const NotificationPanel = ({ visible, onClose, currentUserId, onViewProfile, onViewPost }) => {
+const NotificationPanel = ({ visible, isDarkMode = false, onClose, currentUserId, onViewProfile, onViewPost }) => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -81,12 +81,12 @@ const NotificationPanel = ({ visible, onClose, currentUserId, onViewProfile, onV
 
   return (
     <View style={styles.overlay} onTouchEnd={onClose}>
-      <View style={styles.panel} onStartShouldSetResponder={() => true}>
+      <View style={[styles.panel, isDarkMode && styles.panelDark]} onStartShouldSetResponder={() => true}>
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Thông báo</Text>
+        <View style={[styles.header, isDarkMode && styles.headerDark]}>
+          <Text style={[styles.headerTitle, isDarkMode && styles.headerTitleDark]}>Thông báo</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color="#000" />
+            <Ionicons name="close" size={24} color={isDarkMode ? "#fff" : "#000"} />
           </TouchableOpacity>
         </View>
 
@@ -97,33 +97,35 @@ const NotificationPanel = ({ visible, onClose, currentUserId, onViewProfile, onV
           </View>
         ) : notifications.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Chưa có thông báo nào</Text>
+            <Text style={[styles.emptyText, isDarkMode && styles.emptyTextDark]}>Chưa có thông báo nào</Text>
           </View>
         ) : (
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
             {notifications.map((notification) => (
               <TouchableOpacity
                 key={notification.id}
-                style={styles.notificationItem}
+                style={[styles.notificationItem, isDarkMode && styles.notificationItemDark]}
                 onPress={() => handleNotificationPress(notification)}
                 activeOpacity={0.7}
               >
                 <Image
-                  source={{
-                    uri: notification.fromUserAvatar || DEFAULT_AVATAR,
-                  }}
+                  source={
+                    (notification.fromUserAvatar && notification.fromUserAvatar.trim() !== '') 
+                      ? { uri: notification.fromUserAvatar }
+                      : DEFAULT_AVATAR
+                  }
                   style={styles.avatar}
-                  defaultSource={{ uri: DEFAULT_AVATAR }}
+                  defaultSource={DEFAULT_AVATAR}
                 />
                 <View style={styles.notificationContent}>
-                  <Text style={styles.notificationText} numberOfLines={2}>
-                    <Text style={styles.username}>{notification.fromUsername}</Text>
+                  <Text style={[styles.notificationText, isDarkMode && styles.notificationTextDark]} numberOfLines={2}>
+                    <Text style={[styles.username, isDarkMode && styles.usernameDark]}>{notification.fromUsername}</Text>
                     {' '}
                     {notification.type === 'follow' && 'đã theo dõi bạn'}
                     {notification.type === 'like' && 'đã thích bài viết của bạn'}
                     {notification.type === 'comment' && 'đã bình luận bài viết của bạn'}
                   </Text>
-                  <Text style={styles.time}>{formatTime(notification.createdAt)}</Text>
+                  <Text style={[styles.time, isDarkMode && styles.timeDark]}>{formatTime(notification.createdAt)}</Text>
                 </View>
                 {notification.type === 'follow' && (
                   <Ionicons name="person-add" size={20} color="#0095F6" />
@@ -168,6 +170,9 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
+  panelDark: {
+    backgroundColor: '#1a1a1a',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -177,10 +182,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: '#dbdbdb',
   },
+  headerDark: {
+    borderBottomColor: '#333',
+  },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#000',
+  },
+  headerTitleDark: {
+    color: '#fff',
   },
   closeButton: {
     padding: 5,
@@ -197,6 +208,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#8e8e8e',
   },
+  emptyTextDark: {
+    color: '#999',
+  },
   content: {
     maxHeight: '70%',
   },
@@ -207,6 +221,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 0.5,
     borderBottomColor: '#f0f0f0',
+  },
+  notificationItemDark: {
+    borderBottomColor: '#333',
   },
   avatar: {
     width: 40,
@@ -223,13 +240,22 @@ const styles = StyleSheet.create({
     color: '#000',
     marginBottom: 4,
   },
+  notificationTextDark: {
+    color: '#fff',
+  },
   username: {
     fontWeight: '600',
     color: '#000',
   },
+  usernameDark: {
+    color: '#fff',
+  },
   time: {
     fontSize: 12,
     color: '#8e8e8e',
+  },
+  timeDark: {
+    color: '#999',
   },
 });
 

@@ -9,9 +9,9 @@ import {
 } from 'react-native';
 import { storyService } from '../services/storyService';
 
-const DEFAULT_AVATAR = 'https://via.placeholder.com/70/cccccc/ffffff?text=User';
+const DEFAULT_AVATAR = require('../asset/avt.jpg');
 
-const StoriesSection = ({ user, onCreateStory, onViewStory, refreshTrigger }) => {
+const StoriesSection = ({ user, onCreateStory, onViewStory, refreshTrigger, isDarkMode = false }) => {
   const [stories, setStories] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -111,11 +111,13 @@ const StoriesSection = ({ user, onCreateStory, onViewStory, refreshTrigger }) =>
         >
           <View style={styles.avatarContainer}>
             <Image
-              source={{
-                uri: user?.avatar || DEFAULT_AVATAR,
-              }}
+              source={
+                (user?.avatar && user.avatar.trim() !== '') 
+                  ? { uri: user.avatar }
+                  : DEFAULT_AVATAR
+              }
               style={styles.avatar}
-              defaultSource={{ uri: DEFAULT_AVATAR }}
+              defaultSource={DEFAULT_AVATAR}
             />
             <View style={styles.plusIcon}>
               <Text style={styles.plusText}>+</Text>
@@ -140,11 +142,13 @@ const StoriesSection = ({ user, onCreateStory, onViewStory, refreshTrigger }) =>
                 hasUnviewed ? styles.avatarBorder : styles.avatarBorderViewed
               ]}>
                 <Image
-                  source={{
-                    uri: storyUser.userAvatar || DEFAULT_AVATAR,
-                  }}
+                  source={
+                    (storyUser.userAvatar && storyUser.userAvatar.trim() !== '') 
+                      ? { uri: storyUser.userAvatar }
+                      : DEFAULT_AVATAR
+                  }
                   style={styles.avatar}
-                  defaultSource={{ uri: DEFAULT_AVATAR }}
+                  defaultSource={DEFAULT_AVATAR}
                 />
               </View>
               <Text style={styles.username} numberOfLines={1}>

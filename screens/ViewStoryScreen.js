@@ -100,8 +100,13 @@ const ViewStoryScreen = ({ storyUser, currentUser, onClose, onStoryViewed }) => 
         <View style={styles.topBarLeft}>
           <View style={styles.profileInfo}>
             <Image
-              source={{ uri: storyUser.userAvatar || 'https://via.placeholder.com/40' }}
+              source={
+                (storyUser.userAvatar && storyUser.userAvatar.trim() !== '') 
+                  ? { uri: storyUser.userAvatar }
+                  : require('../asset/avt.jpg')
+              }
               style={styles.profileAvatar}
+              defaultSource={require('../asset/avt.jpg')}
             />
             <View style={styles.profileText}>
               <Text style={styles.username}>{storyUser.username}</Text>

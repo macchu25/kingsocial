@@ -14,48 +14,49 @@ const getBaseUrl = () => {
   return API_URL.replace('/api/auth', '');
 };
 
-export const storyService = {
-  // Lấy tất cả stories (chỉ của người đã follow)
-  getAllStories: async () => {
+export const noteService = {
+  // Lấy tất cả notes (chỉ của người follow lẫn nhau)
+  getAllNotes: async () => {
     const headers = await getAuthHeaders();
     const baseUrl = getBaseUrl();
-    const response = await axios.get(`${baseUrl}/api/stories`, {
+    const response = await axios.get(`${baseUrl}/api/notes`, {
       headers,
     });
     return response.data;
   },
 
-  // Tạo story mới
-  createStory: async (image) => {
+  // Tạo note mới
+  createNote: async (text) => {
     const headers = await getAuthHeaders();
     const baseUrl = getBaseUrl();
     const response = await axios.post(
-      `${baseUrl}/api/stories/create`,
-      { image },
+      `${baseUrl}/api/notes/create`,
+      { text },
       { headers }
     );
     return response.data;
   },
 
-  // Đánh dấu story đã xem
-  markStoryViewed: async (storyId) => {
+  // Đánh dấu note đã xem
+  markNoteViewed: async (noteId) => {
     const headers = await getAuthHeaders();
     const baseUrl = getBaseUrl();
     const response = await axios.post(
-      `${baseUrl}/api/stories/${storyId}/view`,
+      `${baseUrl}/api/notes/${noteId}/view`,
       {},
       { headers }
     );
     return response.data;
   },
 
-  // Lấy notes (chỉ của những người follow lẫn nhau)
-  getNotes: async () => {
+  // Xóa note
+  deleteNote: async (noteId) => {
     const headers = await getAuthHeaders();
     const baseUrl = getBaseUrl();
-    const response = await axios.get(`${baseUrl}/api/stories/notes`, {
-      headers,
-    });
+    const response = await axios.delete(
+      `${baseUrl}/api/notes/${noteId}`,
+      { headers }
+    );
     return response.data;
   },
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -14,28 +14,29 @@ import { Ionicons } from '@expo/vector-icons';
 import { postService } from '../services/postService';
 import { followService } from '../services/followService';
 import { handleApiError } from '../utils/errorHandler';
+import PostMenuModal from './PostMenuModal';
+import CommentModal from './CommentModal';
 
 const { width } = Dimensions.get('window');
-const DEFAULT_AVATAR = 'https://via.placeholder.com/40/cccccc/ffffff?text=User';
+const DEFAULT_AVATAR = require('../asset/avt.jpg');
 
-const PostItem = ({ post, currentUserId, onUpdate, onViewProfile }) => {
+const PostItem = ({ post, currentUserId, isDarkMode = false, onUpdate, onViewProfile, onViewPost, onEditPost }) => {
   const [liked, setLiked] = useState(post.isLiked || false);
   const [likesCount, setLikesCount] = useState(post.likes || 0);
-  const [showComments, setShowComments] = useState(false);
-  const [commentText, setCommentText] = useState('');
-  const [commenting, setCommenting] = useState(false);
-  const [commentsList, setCommentsList] = useState(post.commentsList || []);
+  const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [commentsCount, setCommentsCount] = useState(post.comments || 0);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followingLoading, setFollowingLoading] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [buttonPosition, setButtonPosition] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const moreButtonRef = useRef(null);
 
   const isOwnPost = currentUserId === post.userId;
 
   // Update when post changes
   useEffect(() => {
     setCommentsCount(post.comments || 0);
-    setCommentsList(post.commentsList || []);
-  }, [post.comments, post.commentsList]);
+  }, [post.comments]);
 
   // Check follow status when post changes
   useEffect(() => {
@@ -104,39 +105,6 @@ const PostItem = ({ post, currentUserId, onUpdate, onViewProfile }) => {
     }
   };
 
-  const handleAddComment = async () => {
-    if (!commentText.trim()) return;
-
-    const commentToAdd = commentText.trim();
-    setCommenting(true);
-    const tempComment = {
-      id: Date.now(),
-      username: 'You',
-      text: commentToAdd,
-    };
-    const updatedComments = [...commentsList, tempComment];
-    setCommentsList(updatedComments);
-    setCommentText('');
-
-    try {
-      const response = await postService.addComment(post.id, commentToAdd);
-      if (response.success) {
-        // Replace temp comment with real comment from server
-        setCommentsList([...commentsList, response.comment]);
-        setCommentsCount(response.commentsCount);
-        if (onUpdate) onUpdate();
-      } else {
-        // Remove temp comment on error
-        setCommentsList(commentsList);
-      }
-    } catch (error) {
-      // Remove temp comment on error
-      setCommentsList(commentsList);
-      handleApiError(error);
-    } finally {
-      setCommenting(false);
-    }
-  };
 
   const formatTime = (date) => {
     if (!date) return '';
@@ -161,42 +129,66 @@ const PostItem = ({ post, currentUserId, onUpdate, onViewProfile }) => {
           activeOpacity={0.7}
         >
           <Image
-            source={{
-              uri: post.userAvatar || post.avatar || DEFAULT_AVATAR,
-            }}
+            source={
+              ((post.userAvatar && post.userAvatar.trim() !== '') || (post.avatar && post.avatar.trim() !== '')) 
+                ? { uri: (post.userAvatar || post.avatar) }
+                : DEFAULT_AVATAR
+            }
             style={styles.avatar}
-            defaultSource={{ uri: DEFAULT_AVATAR }}
+            defaultSource={DEFAULT_AVATAR}
           />
-          <Text style={styles.username}>{post.username}</Text>
+          <Text style={[styles.username, isDarkMode && styles.usernameDark]}>{post.username}</Text>
         </TouchableOpacity>
         <View style={styles.headerActions}>
           {!isOwnPost && (
             <TouchableOpacity
-              style={styles.followButton}
+              style={[
+                styles.followButton,
+                isFollowing && styles.followingButton,
+                isFollowing && isDarkMode && styles.followingButtonDark
+              ]}
               onPress={handleFollow}
               disabled={followingLoading}
             >
               {followingLoading ? (
-                <ActivityIndicator size="small" color={isFollowing ? "#000" : "#0095F6"} />
+                <ActivityIndicator size="small" color={isFollowing ? (isDarkMode ? "#fff" : "#000") : "#0095F6"} />
               ) : (
-                <Text style={[styles.followButtonText, isFollowing && styles.followingButtonText]}>
+                <Text style={[
+                  styles.followButtonText,
+                  isFollowing && styles.followingButtonText,
+                  isFollowing && isDarkMode && styles.followingButtonTextDark
+                ]}>
                   {isFollowing ? 'Đang theo dõi' : 'Theo dõi'}
                 </Text>
               )}
             </TouchableOpacity>
           )}
-          <TouchableOpacity style={styles.moreButton}>
-            <Ionicons name="ellipsis-horizontal" size={24} color="#000" />
+          <TouchableOpacity 
+            ref={moreButtonRef}
+            style={styles.moreButton}
+            onPress={() => {
+              moreButtonRef.current?.measure((x, y, width, height, pageX, pageY) => {
+                setButtonPosition({ x: pageX, y: pageY, width, height });
+                setMenuVisible(true);
+              });
+            }}
+          >
+            <Ionicons name="ellipsis-horizontal" size={24} color={isDarkMode ? "#fff" : "#000"} />
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Post Image */}
-      <Image
-        source={{ uri: post.image }}
-        style={styles.postImage}
-        resizeMode="cover"
-      />
+      <TouchableOpacity 
+        onPress={() => onViewPost && onViewPost(post)}
+        activeOpacity={0.95}
+      >
+        <Image
+          source={{ uri: post.image }}
+          style={styles.postImage}
+          resizeMode="cover"
+        />
+      </TouchableOpacity>
 
       {/* Post Actions */}
       <View style={styles.actions}>
@@ -205,72 +197,86 @@ const PostItem = ({ post, currentUserId, onUpdate, onViewProfile }) => {
             <Ionicons 
               name={liked ? 'heart' : 'heart-outline'} 
               size={24} 
-              color={liked ? '#FF3040' : '#000'} 
+              color={liked ? '#FF3040' : (isDarkMode ? '#fff' : '#000')} 
             />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="chatbubble-outline" size={24} color="#000" />
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => setCommentModalVisible(true)}
+          >
+            <Ionicons name="chatbubble-outline" size={24} color={isDarkMode ? "#fff" : "#000"} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="paper-plane-outline" size={24} color="#000" />
+            <Ionicons name="paper-plane-outline" size={24} color={isDarkMode ? "#fff" : "#000"} />
           </TouchableOpacity>
         </View>
         <TouchableOpacity>
-          <Ionicons name="bookmark-outline" size={24} color="#000" />
+          <Ionicons name="bookmark-outline" size={24} color={isDarkMode ? "#fff" : "#000"} />
         </TouchableOpacity>
       </View>
 
       {/* Post Info */}
       <View style={styles.info}>
-        <Text style={styles.likes}>{likesCount.toLocaleString()} lượt thích</Text>
+        <Text style={[styles.likes, isDarkMode && styles.likesDark]}>{likesCount.toLocaleString()} lượt thích</Text>
         <View style={styles.captionContainer}>
-          <Text style={styles.username}>{post.username} </Text>
-          <Text style={styles.caption}>{post.caption}</Text>
+          <Text style={[styles.username, isDarkMode && styles.usernameDark]}>{post.username} </Text>
+          <Text style={[styles.caption, isDarkMode && styles.captionDark]}>{post.caption}</Text>
         </View>
-        <TouchableOpacity onPress={() => setShowComments(!showComments)}>
-          <Text style={styles.comments}>
-            {commentsCount > 0
-              ? `Xem tất cả ${commentsCount} bình luận`
-              : 'Thêm bình luận đầu tiên'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Comments List */}
-        {showComments && commentsList.length > 0 && (
-          <View style={styles.commentsList}>
-            {commentsList.map((comment, index) => (
-              <View key={comment.id || index} style={styles.commentItem}>
-                <Text style={styles.commentUsername}>{comment.username} </Text>
-                <Text style={styles.commentText}>{comment.text}</Text>
-              </View>
-            ))}
-          </View>
+        {commentsCount > 0 && (
+          <TouchableOpacity onPress={() => setCommentModalVisible(true)}>
+            <Text style={[styles.comments, isDarkMode && styles.commentsDark]}>
+              Xem tất cả {commentsCount} bình luận
+            </Text>
+          </TouchableOpacity>
         )}
 
-        <Text style={styles.time}>{formatTime(post.createdAt)}</Text>
-
-        {/* Comment Input */}
-        <View style={styles.commentInputContainer}>
-          <TextInput
-            style={styles.commentInput}
-            placeholder="Thêm bình luận..."
-            placeholderTextColor="#8e8e8e"
-            value={commentText}
-            onChangeText={setCommentText}
-            onSubmitEditing={handleAddComment}
-            editable={!commenting}
-          />
-          {commentText.trim().length > 0 && (
-            <TouchableOpacity
-              onPress={handleAddComment}
-              disabled={commenting}
-              style={styles.postCommentButton}
-            >
-              <Text style={styles.postCommentText}>Đăng</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        <Text style={[styles.time, isDarkMode && styles.timeDark]}>{formatTime(post.createdAt)}</Text>
       </View>
+
+      {/* Comment Modal */}
+      <CommentModal
+        visible={commentModalVisible}
+        post={post}
+        currentUser={{ id: currentUserId }}
+        isDarkMode={isDarkMode}
+        onClose={() => {
+          setCommentModalVisible(false);
+          if (onUpdate) onUpdate();
+        }}
+        onViewProfile={onViewProfile}
+      />
+
+      {/* Post Menu Modal */}
+      <PostMenuModal
+        visible={menuVisible}
+        isOwnPost={isOwnPost}
+        isDarkMode={isDarkMode}
+        buttonPosition={buttonPosition}
+        onClose={() => setMenuVisible(false)}
+        onEdit={() => {
+          if (onEditPost) {
+            onEditPost(post);
+          }
+        }}
+        onDelete={async () => {
+          try {
+            const response = await postService.deletePost(post.id);
+            if (response.success) {
+              Alert.alert('Thành công', 'Đã xóa bài viết');
+              if (onUpdate) {
+                onUpdate();
+              }
+            }
+          } catch (error) {
+            handleApiError(error);
+            throw error;
+          }
+        }}
+        onHide={async () => {
+          // TODO: Implement hide post
+          Alert.alert('Thông báo', 'Tính năng ẩn bài viết đang được phát triển');
+        }}
+      />
     </View>
   );
 };
@@ -303,29 +309,43 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 5,
     marginRight: 10,
-    backgroundColor: '#0095F6',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#0095F6',
+  },
+  followingButton: {
+    borderColor: '#000',
+  },
+  followingButtonDark: {
+    borderColor: '#fff',
   },
   followButtonText: {
-    color: '#fff',
+    color: '#0095F6',
     fontSize: 12,
     fontWeight: '600',
   },
   followingButtonText: {
     color: '#000',
   },
+  followingButtonTextDark: {
+    color: '#fff',
+  },
   moreButton: {
     padding: 5,
   },
   avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     marginRight: 10,
   },
   username: {
     fontSize: 14,
     fontWeight: '600',
     color: '#000',
+  },
+  usernameDark: {
+    color: '#fff',
   },
   postImage: {
     width: width,
@@ -354,6 +374,9 @@ const styles = StyleSheet.create({
     color: '#000',
     marginBottom: 5,
   },
+  likesDark: {
+    color: '#fff',
+  },
   captionContainer: {
     flexDirection: 'row',
     marginBottom: 5,
@@ -363,10 +386,16 @@ const styles = StyleSheet.create({
     color: '#000',
     flex: 1,
   },
+  captionDark: {
+    color: '#fff',
+  },
   comments: {
     fontSize: 14,
     color: '#8e8e8e',
     marginBottom: 5,
+  },
+  commentsDark: {
+    color: '#999',
   },
   time: {
     fontSize: 12,
@@ -374,23 +403,46 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: 5,
   },
+  timeDark: {
+    color: '#999',
+  },
   commentsList: {
     marginTop: 5,
     marginBottom: 5,
   },
   commentItem: {
+    marginBottom: 8,
+  },
+  commentUserContainer: {
     flexDirection: 'row',
-    marginBottom: 5,
+    alignItems: 'flex-start',
+  },
+  commentAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginRight: 8,
+  },
+  commentTextContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
   commentUsername: {
     fontSize: 14,
     fontWeight: '600',
     color: '#000',
   },
+  commentUsernameDark: {
+    color: '#fff',
+  },
   commentText: {
     fontSize: 14,
     color: '#000',
     flex: 1,
+  },
+  commentTextDark: {
+    color: '#fff',
   },
   commentInputContainer: {
     flexDirection: 'row',
@@ -400,11 +452,17 @@ const styles = StyleSheet.create({
     borderTopWidth: 0.5,
     borderTopColor: '#dbdbdb',
   },
+  commentInputContainerDark: {
+    borderTopColor: '#333',
+  },
   commentInput: {
     flex: 1,
     fontSize: 14,
     color: '#000',
     paddingVertical: 5,
+  },
+  commentInputDark: {
+    color: '#fff',
   },
   postCommentButton: {
     paddingHorizontal: 10,

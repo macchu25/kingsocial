@@ -48,6 +48,18 @@ export const followService = {
     );
     return response.data;
   },
+
+  // Get following list
+  getFollowingList: async () => {
+    const headers = await getAuthHeaders();
+    const baseUrl = getBaseUrl();
+    const response = await axios.get(
+      `${baseUrl}/api/follow/following/list`,
+      { headers }
+    );
+    return response.data;
+  },
 };
+
 
 

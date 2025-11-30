@@ -12,9 +12,13 @@ const commentSchema = new mongoose.Schema({
   },
   text: {
     type: String,
-    required: true,
+    default: '',
     trim: true,
     maxlength: 500
+  },
+  image: {
+    type: String,
+    default: ''
   }
 }, {
   timestamps: true
@@ -67,5 +71,6 @@ postSchema.virtual('commentsCount').get(function() {
 postSchema.set('toJSON', { virtuals: true });
 
 module.exports = mongoose.model('Post', postSchema);
+
 
 

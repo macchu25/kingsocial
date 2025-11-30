@@ -34,10 +34,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 15,
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 5,
   },
   primary: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#FFB6C1',
   },
   danger: {
     backgroundColor: '#FF3B30',
@@ -53,5 +53,6 @@ const styles = StyleSheet.create({
 });
 
 export default Button;
+
 
 

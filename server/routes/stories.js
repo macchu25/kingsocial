@@ -197,6 +197,78 @@ router.post('/:storyId/view', verifyToken, async (req, res) => {
   }
 });
 
+// Get notes (stories from mutual follows only)
+router.get('/notes', verifyToken, async (req, res) => {
+  try {
+    const currentUser = await User.findById(req.userId);
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy người dùng'
+      });
+    }
+
+    // Get list of user IDs that current user is following
+    const followingIds = currentUser.following || [];
+    
+    // Get mutual follows (users who follow current user back)
+    const mutualFollows = [];
+    for (const followingId of followingIds) {
+      const followingUser = await User.findById(followingId);
+      if (followingUser && followingUser.followers.some(id => id.toString() === req.userId)) {
+        mutualFollows.push(followingId);
+      }
+    }
+    
+    // Also include current user's own stories
+    const userIdsToFetch = [...mutualFollows, req.userId];
+
+    // Get stories that haven't expired
+    const now = new Date();
+    const stories = await Story.find({
+      userId: { $in: userIdsToFetch },
+      expiresAt: { $gt: now }
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Group stories by user
+    const storiesByUser = {};
+    stories.forEach(story => {
+      const userId = story.userId.toString();
+      if (!storiesByUser[userId]) {
+        storiesByUser[userId] = {
+          userId: userId,
+          username: story.username,
+          userAvatar: story.userAvatar || '',
+          stories: []
+        };
+      }
+      const isViewed = story.viewedBy && story.viewedBy.some(id => id.toString() === req.userId);
+      storiesByUser[userId].stories.push({
+        id: story._id.toString(),
+        image: story.image,
+        createdAt: story.createdAt,
+        isViewed: isViewed || false
+      });
+    });
+
+    // Convert to array
+    const storiesArray = Object.values(storiesByUser);
+
+    res.json({
+      success: true,
+      stories: storiesArray
+    });
+  } catch (error) {
+    console.error('Get notes error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server. Vui lòng thử lại sau.'
+    });
+  }
+});
+
 // Clean up expired stories (optional endpoint for manual cleanup)
 router.delete('/cleanup', verifyToken, async (req, res) => {
   try {

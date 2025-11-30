@@ -50,12 +50,35 @@ export const postService = {
   },
 
       // Thêm comment
-      addComment: async (postId, text) => {
+      addComment: async (postId, text, image = null) => {
         const headers = await getAuthHeaders();
         const baseUrl = getBaseUrl();
         const response = await axios.post(
           `${baseUrl}/api/posts/${postId}/comment`,
-          { text },
+          { text, image },
+          { headers }
+        );
+        return response.data;
+      },
+
+      // Xóa comment
+      deleteComment: async (postId, commentId) => {
+        const headers = await getAuthHeaders();
+        const baseUrl = getBaseUrl();
+        const response = await axios.delete(
+          `${baseUrl}/api/posts/${postId}/comment/${commentId}`,
+          { headers }
+        );
+        return response.data;
+      },
+
+      // Cập nhật comment
+      updateComment: async (postId, commentId, text, image = null) => {
+        const headers = await getAuthHeaders();
+        const baseUrl = getBaseUrl();
+        const response = await axios.put(
+          `${baseUrl}/api/posts/${postId}/comment/${commentId}`,
+          { text, image },
           { headers }
         );
         return response.data;
@@ -67,6 +90,40 @@ export const postService = {
         const baseUrl = getBaseUrl();
         const response = await axios.get(
           `${baseUrl}/api/posts/user/${userId}`,
+          { headers }
+        );
+        return response.data;
+      },
+
+      // Lấy post theo ID với tất cả comments
+      getPostById: async (postId) => {
+        const headers = await getAuthHeaders();
+        const baseUrl = getBaseUrl();
+        const response = await axios.get(
+          `${baseUrl}/api/posts/${postId}`,
+          { headers }
+        );
+        return response.data;
+      },
+
+      // Xóa post
+      deletePost: async (postId) => {
+        const headers = await getAuthHeaders();
+        const baseUrl = getBaseUrl();
+        const response = await axios.delete(
+          `${baseUrl}/api/posts/${postId}`,
+          { headers }
+        );
+        return response.data;
+      },
+
+      // Cập nhật post
+      updatePost: async (postId, caption) => {
+        const headers = await getAuthHeaders();
+        const baseUrl = getBaseUrl();
+        const response = await axios.put(
+          `${baseUrl}/api/posts/${postId}`,
+          { caption },
           { headers }
         );
         return response.data;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,6 +8,9 @@ import {
   ScrollView,
   Alert,
   TouchableOpacity,
+  Image,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import Input from '../components/Input';
@@ -17,19 +20,41 @@ import { storage } from '../utils/storage';
 import { validateForm } from '../utils/validation';
 import { handleApiError } from '../utils/errorHandler';
 
+const { height } = Dimensions.get('window');
+
 const RegisterScreen = ({ onRegisterSuccess, onSwitchToLogin }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
     password: '',
+    confirmPassword: '',
   });
+  const slideAnim = useRef(new Animated.Value(height * 0.3)).current;
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
       [field]: value,
     }));
+  };
+
+  useEffect(() => {
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 400,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  const handleSwitchToLogin = () => {
+    Animated.timing(slideAnim, {
+      toValue: height * 0.3,
+      duration: 400,
+      useNativeDriver: true,
+    }).start(() => {
+      onSwitchToLogin();
+    });
   };
 
   const handleSubmit = async () => {
@@ -67,50 +92,84 @@ const RegisterScreen = ({ onRegisterSuccess, onSwitchToLogin }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <StatusBar style="auto" />
-      <ScrollView
-        contentContainerStyle={styles.scrollContainer}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.formContainer}>
-          <Text style={styles.title}>Đăng ký</Text>
+      <StatusBar style="light" />
+      <View style={styles.container}>
+        {/* Pink Header with Logo */}
+        <View style={styles.headerContainer}>
+          <Image
+            source={require('../asset/lginse.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </View>
+
+        {/* White Form Container with Animation */}
+        <Animated.View
+          style={[
+            styles.formContainer,
+            {
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.titleContainer}>
+              <Text style={styles.title}>Sign up</Text>
+              <View style={styles.titleUnderline} />
+            </View>
 
           <Input
-            placeholder="Tên đăng nhập"
+            label="Username"
+            placeholder="enter your username"
             value={formData.username}
             onChangeText={(value) => handleInputChange('username', value)}
           />
 
           <Input
-            placeholder="Email"
+            label="Email"
+            placeholder="demo@email.com"
             value={formData.email}
             onChangeText={(value) => handleInputChange('email', value)}
             keyboardType="email-address"
           />
 
           <Input
-            placeholder="Mật khẩu"
+            label="Password"
+            placeholder="enter your password"
             value={formData.password}
             onChangeText={(value) => handleInputChange('password', value)}
             secureTextEntry
           />
 
+          <Input
+            label="Confirm Password"
+            placeholder="confirm your password"
+            value={formData.confirmPassword || ''}
+            onChangeText={(value) => handleInputChange('confirmPassword', value)}
+            secureTextEntry
+          />
+
           <Button
-            title="Đăng ký"
+            title="Sign up"
             onPress={handleSubmit}
             loading={loading}
           />
 
-          <TouchableOpacity
-            style={styles.switchButton}
-            onPress={onSwitchToLogin}
-          >
-            <Text style={styles.switchText}>
-              Đã có tài khoản? Đăng nhập
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+            <View style={styles.switchContainer}>
+              <Text style={styles.switchText}>
+                Already have an Account?{' '}
+              </Text>
+              <TouchableOpacity onPress={handleSwitchToLogin}>
+                <Text style={styles.switchLink}>Sign in</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </Animated.View>
+      </View>
     </KeyboardAvoidingView>
   );
 };
@@ -118,43 +177,72 @@ const RegisterScreen = ({ onRegisterSuccess, onSwitchToLogin }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFB6C1',
   },
-  scrollContainer: {
-    flexGrow: 1,
+  headerContainer: {
+    height: height * 0.35,
+    backgroundColor: '#FFB6C1',
     justifyContent: 'center',
-    padding: 20,
+    alignItems: 'center',
+    paddingTop: 60,
+  },
+  logo: {
+    width: 220,
+    height: 100,
   },
   formContainer: {
+    flex: 1,
     backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 20,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingTop: 30,
+    paddingHorizontal: 25,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: -3,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowRadius: 5,
+    elevation: 10,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
+  titleContainer: {
+    marginBottom: 30,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
-    marginBottom: 30,
-    textAlign: 'center',
-    color: '#333',
+    color: '#000',
+    marginBottom: 5,
   },
-  switchButton: {
-    marginTop: 20,
+  titleUnderline: {
+    width: 50,
+    height: 3,
+    backgroundColor: '#FFB6C1',
+    marginTop: 5,
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 20,
   },
   switchText: {
-    color: '#007AFF',
+    color: '#666',
     fontSize: 14,
+  },
+  switchLink: {
+    color: '#FFB6C1',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 
 export default RegisterScreen;
+
 
 

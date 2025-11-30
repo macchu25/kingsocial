@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -19,7 +19,7 @@ import NotificationPanel from '../components/NotificationPanel';
 import { postService } from '../services/postService';
 import { handleApiError } from '../utils/errorHandler';
 
-const HomeScreen = ({ user, onLogout, onNavigateToProfile, onNavigateToCreatePost, onViewUserProfile, onCreateStory, onViewStory }) => {
+const HomeScreen = ({ user, isDarkMode = false, onLogout, onNavigateToProfile, onNavigateToCreatePost, onNavigateToMessages, onViewUserProfile, onCreateStory, onViewStory, onViewPost, onEditPost }) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -61,25 +61,25 @@ const HomeScreen = ({ user, onLogout, onNavigateToProfile, onNavigateToCreatePos
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
+      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
       
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.logo}>Instagram</Text>
+      <View style={[styles.header, isDarkMode && styles.headerDark]}>
+        <Text style={[styles.logo, isDarkMode && styles.logoDark]}>Instagram</Text>
         <View style={styles.headerIcons}>
             <TouchableOpacity 
               style={styles.iconButton}
               onPress={() => setNotificationVisible(true)}
             >
-              <Ionicons name="heart-outline" size={24} color="#000" />
+              <Ionicons name="heart-outline" size={24} color={isDarkMode ? "#fff" : "#000"} />
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.iconButton}
-              onPress={() => setNotificationVisible(true)}
+              onPress={onNavigateToMessages}
             >
               <View style={styles.messageIconContainer}>
-                <Ionicons name="chatbubble-outline" size={24} color="#000" />
+                <Ionicons name="chatbubble-outline" size={24} color={isDarkMode ? "#fff" : "#000"} />
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>4</Text>
                 </View>
@@ -88,31 +88,34 @@ const HomeScreen = ({ user, onLogout, onNavigateToProfile, onNavigateToCreatePos
         </View>
       </View>
 
-      {/* Stories Section */}
-      <StoriesSection
-        user={user}
-        onCreateStory={onCreateStory}
-        onViewStory={onViewStory}
-        refreshTrigger={storiesRefreshTrigger}
-      />
-
-      {/* Posts Feed */}
+      {/* Scrollable Content - Stories and Posts */}
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#0095F6" />
         </View>
       ) : (
         <ScrollView
+          ref={scrollViewRef}
           style={styles.feed}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
+          {/* Stories Section */}
+          <StoriesSection
+            user={user}
+            onCreateStory={onCreateStory}
+            onViewStory={onViewStory}
+            refreshTrigger={storiesRefreshTrigger}
+            isDarkMode={isDarkMode}
+          />
+
+          {/* Posts Feed */}
           {posts.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Chưa có bài viết nào</Text>
-              <Text style={styles.emptySubtext}>Hãy tạo bài viết đầu tiên của bạn!</Text>
+              <Text style={[styles.emptyText, isDarkMode && styles.emptyTextDark]}>Chưa có bài viết nào</Text>
+              <Text style={[styles.emptySubtext, isDarkMode && styles.emptySubtextDark]}>Hãy tạo bài viết đầu tiên của bạn!</Text>
             </View>
           ) : (
             posts.map((post, index) => (
@@ -127,8 +130,11 @@ const HomeScreen = ({ user, onLogout, onNavigateToProfile, onNavigateToCreatePos
                 <PostItem
                   post={post}
                   currentUserId={user?.id}
+                  isDarkMode={isDarkMode}
                   onUpdate={handlePostUpdate}
                   onViewProfile={onViewUserProfile}
+                  onViewPost={onViewPost}
+                  onEditPost={onEditPost}
                 />
               </View>
             ))
@@ -139,6 +145,7 @@ const HomeScreen = ({ user, onLogout, onNavigateToProfile, onNavigateToCreatePos
       {/* Bottom Navigation */}
       <BottomNavigation
         user={user}
+        isDarkMode={isDarkMode}
         activeTab="home"
         onTabChange={(tab) => {
           if (tab === 'profile' && onNavigateToProfile) {
@@ -152,30 +159,49 @@ const HomeScreen = ({ user, onLogout, onNavigateToProfile, onNavigateToCreatePos
           {/* Notification Panel */}
           <NotificationPanel
             visible={notificationVisible}
+            isDarkMode={isDarkMode}
             onClose={() => setNotificationVisible(false)}
             currentUserId={user?.id}
             onViewProfile={onViewUserProfile}
-            onViewPost={(postId) => {
+            onViewPost={async (postId) => {
               setNotificationVisible(false);
-              // Scroll to the post after a short delay to ensure it's rendered
-              setTimeout(() => {
-                const postRef = postRefs.current[postId];
-                if (postRef && scrollViewRef.current) {
-                  postRef.measureLayout(
-                    scrollViewRef.current,
-                    (x, y) => {
-                      scrollViewRef.current?.scrollTo({ y: y - 20, animated: true });
-                    },
-                    () => {
-                      // Fallback: just refresh posts
-                      loadPosts();
-                    }
-                  );
-                } else {
-                  // If post not found, refresh to load it
-                  loadPosts();
+              
+              if (!postId) {
+                console.log('No postId provided');
+                return;
+              }
+              
+              // Tìm post trong danh sách hiện tại
+              let foundPost = posts.find(p => {
+                const postIdStr = p.id?.toString();
+                const notificationPostIdStr = postId?.toString();
+                return postIdStr === notificationPostIdStr || p.id === postId;
+              });
+              
+              if (foundPost) {
+                // Nếu tìm thấy, chuyển đến post detail
+                if (onViewPost) {
+                  onViewPost(foundPost);
                 }
-              }, 300);
+              } else {
+                // Nếu không tìm thấy, load lại posts và tìm
+                try {
+                  const response = await postService.getAllPosts();
+                  if (response.success && response.posts) {
+                    setPosts(response.posts);
+                    foundPost = response.posts.find(p => {
+                      const postIdStr = p.id?.toString();
+                      const notificationPostIdStr = postId?.toString();
+                      return postIdStr === notificationPostIdStr || p.id === postId;
+                    });
+                    if (foundPost && onViewPost) {
+                      onViewPost(foundPost);
+                    }
+                  }
+                } catch (error) {
+                  console.error('Error loading post:', error);
+                }
+              }
             }}
           />
     </SafeAreaView>
@@ -187,6 +213,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
+  containerDark: {
+    backgroundColor: '#000',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -196,10 +225,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: '#dbdbdb',
   },
+  headerDark: {
+    borderBottomColor: '#333',
+  },
   logo: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#000',
+  },
+  logoDark: {
+    color: '#fff',
   },
   headerIcons: {
     flexDirection: 'row',
@@ -248,11 +283,17 @@ const styles = StyleSheet.create({
     color: '#8e8e8e',
     marginBottom: 10,
   },
+  emptyTextDark: {
+    color: '#999',
+  },
   emptySubtext: {
     fontSize: 14,
     color: '#8e8e8e',
   },
+  emptySubtextDark: {
+    color: '#999',
+  },
 });
 
-export default HomeScreen;
+export default memo(HomeScreen);
 

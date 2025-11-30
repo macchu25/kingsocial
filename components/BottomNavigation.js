@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 
-const BottomNavigation = ({ user, activeTab = 'home', onTabChange }) => {
+const BottomNavigation = ({ user, isDarkMode = false, activeTab = 'home', onTabChange }) => {
   const tabs = [
     { 
       id: 'home', 
@@ -44,7 +44,7 @@ const BottomNavigation = ({ user, activeTab = 'home', onTabChange }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isDarkMode && styles.containerDark]}>
       {tabs.map((tab) => (
         <TouchableOpacity
           key={tab.id}
@@ -54,14 +54,16 @@ const BottomNavigation = ({ user, activeTab = 'home', onTabChange }) => {
           {tab.id === 'profile' ? (
             <View style={styles.profileContainer}>
               <Image
-                source={{
-                  uri: user?.avatar || 'https://via.placeholder.com/28/cccccc/ffffff?text=U'
-                }}
+                source={
+                  (user?.avatar && user.avatar.trim() !== '') 
+                    ? { uri: user.avatar }
+                    : require('../asset/avt.jpg')
+                }
                 style={[
                   styles.profileAvatar,
-                  activeTab === 'profile' && styles.profileAvatarActive
+                  activeTab === 'profile' && [styles.profileAvatarActive, isDarkMode && styles.profileAvatarActiveDark]
                 ]}
-                defaultSource={{ uri: 'https://via.placeholder.com/28/cccccc/ffffff?text=U' }}
+                defaultSource={require('../asset/avt.jpg')}
               />
               {activeTab === 'profile' && (
                 <View style={styles.activeDot} />
@@ -73,16 +75,16 @@ const BottomNavigation = ({ user, activeTab = 'home', onTabChange }) => {
                 <Ionicons 
                   name={tab.icon(activeTab === tab.id)} 
                   size={24} 
-                  color={activeTab === tab.id ? '#000' : '#8e8e8e'} 
+                  color={activeTab === tab.id ? (isDarkMode ? '#fff' : '#000') : (isDarkMode ? '#666' : '#8e8e8e')} 
                 />
               ) : (
                 <MaterialIcons 
                   name={tab.icon(activeTab === tab.id)} 
                   size={24} 
-                  color={activeTab === tab.id ? '#000' : '#8e8e8e'} 
+                  color={activeTab === tab.id ? (isDarkMode ? '#fff' : '#000') : (isDarkMode ? '#666' : '#8e8e8e')} 
                 />
               )}
-              {activeTab === tab.id && <View style={styles.activeDot} />}
+              {activeTab === tab.id && <View style={[styles.activeDot, isDarkMode && styles.activeDotDark]} />}
             </>
           )}
         </TouchableOpacity>
@@ -100,6 +102,10 @@ const styles = StyleSheet.create({
     borderTopWidth: 0.5,
     borderTopColor: '#dbdbdb',
     backgroundColor: '#fff',
+  },
+  containerDark: {
+    backgroundColor: '#000',
+    borderTopColor: '#333',
   },
   tab: {
     alignItems: 'center',
@@ -125,6 +131,9 @@ const styles = StyleSheet.create({
     borderColor: '#000',
     borderWidth: 1.5,
   },
+  profileAvatarActiveDark: {
+    borderColor: '#fff',
+  },
   activeDot: {
     position: 'absolute',
     top: -2,
@@ -133,6 +142,9 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: '#000',
+  },
+  activeDotDark: {
+    backgroundColor: '#fff',
   },
 });
 
