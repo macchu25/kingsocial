@@ -14,29 +14,32 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import BottomNavigation from '../components/BottomNavigation';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import { Ionicons } from '@expo/vector-icons';
 import { postService } from '../services/postService';
 import { handleApiError } from '../utils/errorHandler';
 
 const { width } = Dimensions.get('window');
 
-const CreatePostScreen = ({ user, onPostCreated, onCancel }) => {
+const CreatePostScreen = ({ user, isDarkMode = false, onPostCreated, onCancel, onNavigateToHome, onNavigateToProfile, onNavigateToSearch }) => {
   const [loading, setLoading] = useState(false);
   const [imageLoading, setImageLoading] = useState(false);
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [imageBase64, setImageBase64] = useState(null);
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [imagesBase64, setImagesBase64] = useState([]);
   const [caption, setCaption] = useState('');
 
   useEffect(() => {
     // Request permission for image picker
     (async () => {
       if (Platform.OS !== 'web') {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') {
+        const { status: libraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
+        if (libraryStatus !== 'granted' || cameraStatus !== 'granted') {
           Alert.alert(
             'Cần quyền truy cập',
-            'Ứng dụng cần quyền truy cập thư viện ảnh để chọn ảnh.'
+            'Ứng dụng cần quyền truy cập thư viện ảnh và camera để chọn/chụp ảnh.'
           );
         }
       }
@@ -47,40 +50,79 @@ const CreatePostScreen = ({ user, onPostCreated, onCancel }) => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
+        allowsEditing: false,
+        allowsMultipleSelection: true,
+        quality: 0.4, // Low quality to reduce file size significantly
+        exif: false, // Remove EXIF data to reduce size
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        setSelectedImage(asset.uri);
-        
-        // Convert image to base64
-        setImageLoading(true);
-        try {
-          const base64 = await FileSystem.readAsStringAsync(asset.uri, {
-            encoding: 'base64',
-          });
-          const imageUri = `data:image/jpeg;base64,${base64}`;
-          setImageBase64(imageUri);
-        } catch (error) {
-          console.error('Error converting image:', error);
-          Alert.alert('Lỗi', 'Không thể xử lý ảnh. Vui lòng thử lại.');
-        } finally {
-          setImageLoading(false);
-        }
+        await processImages(result.assets);
       }
     } catch (error) {
-      console.error('Error picking image:', error);
+      console.error('Error picking images:', error);
       Alert.alert('Lỗi', 'Không thể chọn ảnh. Vui lòng thử lại.');
       setImageLoading(false);
     }
   };
 
+  const handleTakePhoto = async () => {
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.4,
+        exif: false,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        await processImages(result.assets);
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      Alert.alert('Lỗi', 'Không thể chụp ảnh. Vui lòng thử lại.');
+      setImageLoading(false);
+    }
+  };
+
+  const processImages = async (assets) => {
+    // Limit to 5 images max to avoid payload too large
+    const maxImages = 5;
+    const assetsToProcess = assets.slice(0, maxImages);
+    
+    if (assets.length > maxImages) {
+      Alert.alert('Thông báo', `Chỉ có thể chọn tối đa ${maxImages} ảnh. Đã chọn ${maxImages} ảnh đầu tiên.`);
+    }
+    
+    setImageLoading(true);
+    try {
+      const newImages = [];
+      const newImagesBase64 = [];
+      
+      for (const asset of assetsToProcess) {
+        newImages.push(asset.uri);
+        
+        // Convert image to base64
+        const base64 = await FileSystem.readAsStringAsync(asset.uri, {
+          encoding: 'base64',
+        });
+        const imageUri = `data:image/jpeg;base64,${base64}`;
+        newImagesBase64.push(imageUri);
+      }
+      
+      setSelectedImages(newImages);
+      setImagesBase64(newImagesBase64);
+    } catch (error) {
+      console.error('Error converting images:', error);
+      Alert.alert('Lỗi', 'Không thể xử lý ảnh. Vui lòng thử lại.');
+    } finally {
+      setImageLoading(false);
+    }
+  };
+
   const handlePost = async () => {
-    if (!selectedImage || !imageBase64) {
-      Alert.alert('Lỗi', 'Vui lòng chọn ảnh');
+    if (selectedImages.length === 0 || imagesBase64.length === 0) {
+      Alert.alert('Lỗi', 'Vui lòng chọn ít nhất một ảnh');
       return;
     }
 
@@ -92,7 +134,7 @@ const CreatePostScreen = ({ user, onPostCreated, onCancel }) => {
     setLoading(true);
 
     try {
-      const response = await postService.createPost(imageBase64, caption);
+      const response = await postService.createPost(imagesBase64, caption);
 
       if (response.success) {
         Alert.alert('Thành công', response.message);
@@ -118,12 +160,12 @@ const CreatePostScreen = ({ user, onPostCreated, onCancel }) => {
         <TouchableOpacity
           onPress={handlePost}
           style={styles.postButton}
-          disabled={loading || !selectedImage}
+          disabled={loading || selectedImages.length === 0}
         >
           {loading ? (
             <ActivityIndicator color="#0095F6" size="small" />
           ) : (
-            <Text style={[styles.postButtonText, !selectedImage && styles.postButtonDisabled]}>
+            <Text style={[styles.postButtonText, selectedImages.length === 0 && styles.postButtonDisabled]}>
               Đăng
             </Text>
           )}
@@ -137,19 +179,39 @@ const CreatePostScreen = ({ user, onPostCreated, onCancel }) => {
             <View style={styles.imagePlaceholder}>
               <ActivityIndicator size="large" color="#0095F6" />
             </View>
-          ) : selectedImage ? (
-            <Image
-              source={{ uri: selectedImage }}
-              style={styles.selectedImage}
-              resizeMode="cover"
-            />
-          ) : (
-            <TouchableOpacity
-              style={styles.imagePlaceholder}
-              onPress={handlePickImage}
+          ) : selectedImages.length > 0 ? (
+            <ScrollView 
+              horizontal 
+              pagingEnabled 
+              showsHorizontalScrollIndicator={false}
+              style={styles.imagesScrollView}
             >
-              <Text style={styles.placeholderText}>Chọn ảnh</Text>
-            </TouchableOpacity>
+              {selectedImages.map((uri, index) => (
+                <Image
+                  key={index}
+                  source={{ uri }}
+                  style={styles.selectedImage}
+                  resizeMode="cover"
+                />
+              ))}
+            </ScrollView>
+          ) : (
+            <View style={styles.imagePlaceholder}>
+              <TouchableOpacity
+                style={styles.imageOptionButton}
+                onPress={handlePickImage}
+              >
+                <Ionicons name="images-outline" size={32} color="#0095F6" />
+                <Text style={styles.placeholderText}>Chọn ảnh</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.imageOptionButton}
+                onPress={handleTakePhoto}
+              >
+                <Ionicons name="camera-outline" size={32} color="#0095F6" />
+                <Text style={styles.placeholderText}>Chụp ảnh</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
 
@@ -172,6 +234,22 @@ const CreatePostScreen = ({ user, onPostCreated, onCancel }) => {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Bottom Navigation */}
+      <BottomNavigation
+        user={user}
+        isDarkMode={isDarkMode}
+        activeTab="add"
+        onTabChange={(tab) => {
+          if (tab === 'home' && onNavigateToHome) {
+            onNavigateToHome();
+          } else if (tab === 'profile' && onNavigateToProfile) {
+            onNavigateToProfile();
+          } else if (tab === 'search' && onNavigateToSearch) {
+            onNavigateToSearch();
+          }
+        }}
+      />
     </SafeAreaView>
   );
 };
@@ -227,17 +305,27 @@ const styles = StyleSheet.create({
   imagePlaceholder: {
     width: '100%',
     height: '100%',
-    justifyContent: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
+  },
+  imageOptionButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   placeholderText: {
     fontSize: 16,
     color: '#8e8e8e',
+    marginTop: 8,
+  },
+  imagesScrollView: {
+    width: width,
+    height: width,
   },
   selectedImage: {
-    width: '100%',
-    height: '100%',
+    width: width,
+    height: width,
   },
   captionSection: {
     paddingHorizontal: 15,

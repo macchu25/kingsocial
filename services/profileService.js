@@ -34,7 +34,19 @@ export const profileService = {
       { name, bio, avatar },
       { headers }
     );
-    return response.data;
-  },
-};
+      return response.data;
+    },
+
+    // Đổi mật khẩu
+    changePassword: async (currentPassword, newPassword) => {
+      const headers = await getAuthHeaders();
+      const baseUrl = getBaseUrl();
+      const response = await axios.put(
+        `${baseUrl}/api/profile/change-password`,
+        { currentPassword, newPassword },
+        { headers }
+      );
+      return response.data;
+    },
+  };
 

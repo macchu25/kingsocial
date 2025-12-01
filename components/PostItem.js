@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { postService } from '../services/postService';
@@ -29,7 +30,14 @@ const PostItem = ({ post, currentUserId, isDarkMode = false, onUpdate, onViewPro
   const [followingLoading, setFollowingLoading] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [buttonPosition, setButtonPosition] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const moreButtonRef = useRef(null);
+  const scrollViewRef = useRef(null);
+  
+  // Get images array, fallback to single image for backward compatibility
+  const images = post.images && post.images.length > 0 
+    ? post.images 
+    : (post.image ? [post.image] : []);
 
   const isOwnPost = currentUserId === post.userId;
 
@@ -178,17 +186,58 @@ const PostItem = ({ post, currentUserId, isDarkMode = false, onUpdate, onViewPro
         </View>
       </View>
 
-      {/* Post Image */}
-      <TouchableOpacity 
-        onPress={() => onViewPost && onViewPost(post)}
-        activeOpacity={0.95}
-      >
-        <Image
-          source={{ uri: post.image }}
-          style={styles.postImage}
-          resizeMode="cover"
-        />
-      </TouchableOpacity>
+      {/* Post Images Carousel */}
+      <View style={styles.imageContainer}>
+        <ScrollView
+          ref={scrollViewRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={(event) => {
+            const index = Math.round(event.nativeEvent.contentOffset.x / width);
+            setCurrentImageIndex(index);
+          }}
+          scrollEnabled={images.length > 1}
+        >
+          {images.map((imageUri, index) => (
+            <TouchableOpacity 
+              key={index}
+              onPress={() => onViewPost && onViewPost(post)}
+              activeOpacity={0.95}
+            >
+              <Image
+                source={{ uri: imageUri }}
+                style={styles.postImage}
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        
+        {/* Image Indicator - Text (Top Right) */}
+        {images.length > 1 && (
+          <View style={styles.imageIndicator}>
+            <Text style={[styles.imageIndicatorText, isDarkMode && styles.imageIndicatorTextDark]}>
+              {currentImageIndex + 1}/{images.length}
+            </Text>
+          </View>
+        )}
+        
+        {/* Image Indicator - Dots (Bottom Center) */}
+        {images.length > 1 && (
+          <View style={styles.dotsIndicator}>
+            {images.map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.dot,
+                  index === currentImageIndex && styles.dotActive
+                ]}
+              />
+            ))}
+          </View>
+        )}
+      </View>
 
       {/* Post Actions */}
       <View style={styles.actions}>
@@ -347,9 +396,53 @@ const styles = StyleSheet.create({
   usernameDark: {
     color: '#fff',
   },
+  imageContainer: {
+    position: 'relative',
+    width: width,
+    height: width,
+  },
   postImage: {
     width: width,
     height: width,
+  },
+  imageIndicator: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  imageIndicatorText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  imageIndicatorTextDark: {
+    color: '#fff',
+  },
+  dotsIndicator: {
+    position: 'absolute',
+    bottom: 10,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  dotActive: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
   actions: {
     flexDirection: 'row',

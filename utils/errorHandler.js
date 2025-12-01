@@ -17,8 +17,10 @@ export const handleApiError = (error) => {
       message = 'Không tìm thấy API endpoint. Vui lòng kiểm tra:\n- Backend có đang chạy không?\n- Route có đúng không?';
     } else if (error.response.status === 401) {
       message = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+    } else if (error.response.status === 413) {
+      message = 'Kích thước ảnh quá lớn. Vui lòng:\n- Chọn ít ảnh hơn\n- Hoặc chọn ảnh có kích thước nhỏ hơn';
     } else {
-      message = error.response.data?.message || `Lỗi ${error.response.status}: ${error.response.statusText}`;
+      message = error.response.data?.message || `Lỗi ${error.response.status}: ${error.response.statusText || 'Unknown error'}`;
     }
   } else if (error.request) {
     // Request was made but no response received

@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-const SettingsScreen = ({ user, isDarkMode, onToggleTheme, onClose, onLogout }) => {
+const SettingsScreen = ({ user, isDarkMode, onToggleTheme, onClose, onLogout, onChangePassword }) => {
   return (
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
@@ -75,7 +75,10 @@ const SettingsScreen = ({ user, isDarkMode, onToggleTheme, onClose, onLogout }) 
             <Ionicons name="chevron-forward" size={20} color={isDarkMode ? "#999" : "#8e8e8e"} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.settingItem, isDarkMode && styles.settingItemDark]}>
+          <TouchableOpacity 
+            style={[styles.settingItem, isDarkMode && styles.settingItemDark]}
+            onPress={onChangePassword}
+          >
             <View style={styles.settingLeft}>
               <Ionicons 
                 name="lock-closed-outline" 
@@ -289,4 +292,6 @@ const styles = StyleSheet.create({
 });
 
 export default SettingsScreen;
+
+
 

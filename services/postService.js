@@ -26,12 +26,16 @@ export const postService = {
   },
 
   // Tạo post mới
-  createPost: async (image, caption) => {
+  createPost: async (images, caption) => {
     const headers = await getAuthHeaders();
     const baseUrl = getBaseUrl();
+    // Support both single image (backward compatibility) and multiple images
+    const payload = Array.isArray(images) 
+      ? { images, caption }
+      : { image: images, caption };
     const response = await axios.post(
       `${baseUrl}/api/posts/create`,
-      { image, caption },
+      payload,
       { headers }
     );
     return response.data;

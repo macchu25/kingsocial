@@ -11,6 +11,7 @@ const Input = ({
   autoCapitalize = 'none',
   label,
   icon,
+  isDarkMode = false,
   ...props 
 }) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -30,18 +31,18 @@ const Input = ({
 
   return (
     <View style={styles.container}>
-      {label && <Text style={styles.label}>{label}</Text>}
-      <View style={styles.inputContainer}>
+      {label && <Text style={[styles.label, isDarkMode && styles.labelDark]}>{label}</Text>}
+      <View style={[styles.inputContainer, isDarkMode && styles.inputContainerDark]}>
         <Ionicons 
           name={getIconName()} 
           size={20} 
-          color="#999" 
+          color={isDarkMode ? "#999" : "#999"} 
           style={styles.icon}
         />
         <TextInput
-          style={styles.input}
+          style={[styles.input, isDarkMode && styles.inputDark]}
           placeholder={placeholder}
-          placeholderTextColor="#999"
+          placeholderTextColor={isDarkMode ? "#666" : "#999"}
           value={value}
           onChangeText={onChangeText}
           secureTextEntry={isPasswordField && !showPassword}
@@ -58,7 +59,7 @@ const Input = ({
             <Ionicons
               name={showPassword ? 'eye-outline' : 'eye-off-outline'}
               size={20}
-              color="#999"
+              color={isDarkMode ? "#999" : "#999"}
             />
           </TouchableOpacity>
         )}
@@ -77,6 +78,9 @@ const styles = StyleSheet.create({
     color: '#000',
     marginBottom: 8,
   },
+  labelDark: {
+    color: '#fff',
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -86,6 +90,10 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
     paddingHorizontal: 12,
   },
+  inputContainerDark: {
+    backgroundColor: '#1a1a1a',
+    borderColor: '#333',
+  },
   icon: {
     marginRight: 10,
   },
@@ -94,6 +102,9 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     fontSize: 16,
     color: '#000',
+  },
+  inputDark: {
+    color: '#fff',
   },
   eyeIcon: {
     padding: 5,

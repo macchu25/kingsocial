@@ -12,6 +12,8 @@ import MessagesScreen from './screens/MessagesScreen';
 import CreateNoteScreen from './screens/CreateNoteScreen';
 import EditPostScreen from './screens/EditPostScreen';
 import ChatScreen from './screens/ChatScreen';
+import SearchScreen from './screens/SearchScreen';
+import ChangePasswordScreen from './screens/ChangePasswordScreen';
 import { storage } from './utils/storage';
 
 export default function App() {
@@ -126,6 +128,19 @@ export default function App() {
         />
       );
     }
+    if (currentScreen === 'changePassword') {
+      return (
+        <ChangePasswordScreen
+          user={user}
+          isDarkMode={isDarkMode}
+          onClose={() => setCurrentScreen('settings')}
+          onSuccess={() => {
+            // Password changed successfully
+            setCurrentScreen('settings');
+          }}
+        />
+      );
+    }
     if (currentScreen === 'settings') {
       return (
         <SettingsScreen
@@ -134,6 +149,7 @@ export default function App() {
           onToggleTheme={handleToggleTheme}
           onClose={() => setCurrentScreen('profile')}
           onLogout={handleLogout}
+          onChangePassword={() => setCurrentScreen('changePassword')}
         />
       );
     }
@@ -187,8 +203,12 @@ export default function App() {
       return (
         <CreatePostScreen
           user={user}
+          isDarkMode={isDarkMode}
           onPostCreated={() => setCurrentScreen('home')}
           onCancel={() => setCurrentScreen('home')}
+          onNavigateToHome={() => setCurrentScreen('home')}
+          onNavigateToProfile={() => setCurrentScreen('profile')}
+          onNavigateToSearch={() => setCurrentScreen('search')}
         />
       );
     }
@@ -228,8 +248,27 @@ export default function App() {
           onNavigateToHome={() => setCurrentScreen('home')}
           onEditProfile={() => setCurrentScreen('editProfile')}
           onNavigateToSettings={() => setCurrentScreen('settings')}
+          onNavigateToSearch={() => setCurrentScreen('search')}
           onViewPost={(post) => {
             setPreviousScreen('profile');
+            setViewingPost(post);
+            setCurrentScreen('postDetail');
+          }}
+        />
+      );
+    }
+    if (currentScreen === 'search') {
+      return (
+        <SearchScreen
+          user={user}
+          isDarkMode={isDarkMode}
+          onClose={() => setCurrentScreen('home')}
+          onViewUserProfile={handleViewUserProfile}
+          onNavigateToHome={() => setCurrentScreen('home')}
+          onNavigateToProfile={() => setCurrentScreen('profile')}
+          onNavigateToCreatePost={() => setCurrentScreen('createPost')}
+          onViewPost={(post) => {
+            setPreviousScreen('search');
             setViewingPost(post);
             setCurrentScreen('postDetail');
           }}
@@ -249,6 +288,7 @@ export default function App() {
         onNavigateToProfile={() => setCurrentScreen('profile')}
         onNavigateToCreatePost={() => setCurrentScreen('createPost')}
         onNavigateToMessages={() => setCurrentScreen('messages')}
+        onNavigateToSearch={() => setCurrentScreen('search')}
         onViewUserProfile={handleViewUserProfile}
         onCreateStory={() => setCurrentScreen('createStory')}
         onViewStory={(storyUser) => {

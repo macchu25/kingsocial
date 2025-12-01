@@ -25,7 +25,7 @@ const POST_SIZE = (width - 4) / 3;
 
 const DEFAULT_AVATAR = require('../asset/avt.jpg');
 
-const ProfileScreen = ({ user, currentUser, isDarkMode = false, onLogout, onNavigateToHome, onEditProfile, onNavigateToSettings, onViewPost }) => {
+const ProfileScreen = ({ user, currentUser, isDarkMode = false, onLogout, onNavigateToHome, onEditProfile, onNavigateToSettings, onNavigateToSearch, onViewPost }) => {
   const [stats, setStats] = useState({
     posts: 0,
     followers: 0,
@@ -356,6 +356,8 @@ const ProfileScreen = ({ user, currentUser, isDarkMode = false, onLogout, onNavi
         onTabChange={(tab) => {
           if (tab === 'home' && onNavigateToHome) {
             onNavigateToHome();
+          } else if (tab === 'search' && onNavigateToSearch) {
+            onNavigateToSearch();
           }
         }}
       />

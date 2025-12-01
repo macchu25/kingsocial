@@ -8,17 +8,20 @@ import {
   TouchableOpacity,
   StatusBar,
   TextInput,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import NotesSection from '../components/NotesSection';
 import { followService } from '../services/followService';
 import { handleApiError } from '../utils/errorHandler';
+import SwipeableConversationRow from '../components/SwipeableConversationRow';
 
 const DEFAULT_AVATAR = require('../asset/avt.jpg');
 
 const MessagesScreen = ({ user, isDarkMode = false, onClose, onCreateNote, onCreateStory, onViewStory, onOpenChat }) => {
   const [messages, setMessages] = useState([]);
+  const [allMessages, setAllMessages] = useState([]); // Store all messages for filtering
   const [searchText, setSearchText] = useState('');
   const [notesRefreshTrigger, setNotesRefreshTrigger] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -27,6 +30,22 @@ const MessagesScreen = ({ user, isDarkMode = false, onClose, onCreateNote, onCre
   useEffect(() => {
     loadFollowingList();
   }, []);
+
+  // Filter messages based on search text (only by username)
+  useEffect(() => {
+    if (!searchText.trim()) {
+      setMessages(allMessages);
+      return;
+    }
+
+    const filtered = allMessages.filter((message) => {
+      const searchLower = searchText.toLowerCase().trim();
+      const usernameMatch = message.username?.toLowerCase().includes(searchLower);
+      return usernameMatch;
+    });
+
+    setMessages(filtered);
+  }, [searchText, allMessages]);
 
   const loadFollowingList = async () => {
     setLoading(true);
@@ -42,6 +61,7 @@ const MessagesScreen = ({ user, isDarkMode = false, onClose, onCreateNote, onCre
           time: '',
           unread: false,
         }));
+        setAllMessages(followingMessages);
         setMessages(followingMessages);
       }
     } catch (error) {
@@ -59,6 +79,33 @@ const MessagesScreen = ({ user, isDarkMode = false, onClose, onCreateNote, onCre
       return <Ionicons name="checkmark" size={16} color={isDarkMode ? "#999" : "#8e8e8e"} />;
     }
     return null;
+  };
+
+  const handleDeleteConversation = (messageId, username) => {
+    // Don't allow deleting Gemini AI chat
+    if (messageId === 'openai' || messageId === 'gemini') {
+      return;
+    }
+
+    Alert.alert(
+      'Xóa cuộc trò chuyện',
+      `Bạn có chắc chắn muốn xóa cuộc trò chuyện với ${username}?`,
+      [
+        {
+          text: 'Hủy',
+          style: 'cancel',
+        },
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: () => {
+            // Remove from both messages and allMessages lists
+            setMessages(prev => prev.filter(m => m.id !== messageId));
+            setAllMessages(prev => prev.filter(m => m.id !== messageId));
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -91,11 +138,19 @@ const MessagesScreen = ({ user, isDarkMode = false, onClose, onCreateNote, onCre
           </View>
           <TextInput
             style={[styles.searchInput, isDarkMode && styles.searchInputDark]}
-            placeholder="Hỏi Meta AI hoặc tìm kiếm"
+            placeholder="Tìm kiếm cuộc trò chuyện..."
             placeholderTextColor={isDarkMode ? "#666" : "#8e8e8e"}
             value={searchText}
             onChangeText={setSearchText}
           />
+          {searchText.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setSearchText('')}
+              style={styles.clearButton}
+            >
+              <Ionicons name="close-circle" size={20} color={isDarkMode ? "#666" : "#8e8e8e"} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -143,6 +198,46 @@ const MessagesScreen = ({ user, isDarkMode = false, onClose, onCreateNote, onCre
 
       {/* Messages List */}
       <ScrollView style={styles.messagesList} showsVerticalScrollIndicator={false}>
+        {/* Gemini AI Item - Show if no search or search matches "gemini" */}
+        {(!searchText.trim() || searchText.toLowerCase().trim().includes('gemini') || searchText.toLowerCase().trim().includes('trợ lý') || searchText.toLowerCase().trim().includes('ai')) && (
+          <TouchableOpacity
+            style={[styles.messageItem, isDarkMode && styles.messageItemDark]}
+            activeOpacity={0.7}
+            onPress={() => {
+              if (onOpenChat) {
+                onOpenChat({
+                  id: 'openai',
+                  username: 'Gemini',
+                  avatar: '',
+                  isAI: true,
+                });
+              }
+            }}
+          >
+            <View style={styles.aiAvatarContainer}>
+              <Ionicons name="chatbubbles" size={28} color="#4285F4" />
+            </View>
+            <View style={styles.messageContent}>
+              <View style={styles.messageHeader}>
+                <Text style={[styles.username, isDarkMode && styles.usernameDark]}>
+                  Gemini
+                </Text>
+              </View>
+              <View style={styles.messageFooter}>
+                <Text
+                  style={[
+                    styles.lastMessage,
+                    isDarkMode && styles.lastMessageDark,
+                  ]}
+                  numberOfLines={1}
+                >
+                  Trợ lý AI của bạn
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        )}
+
         {loading ? (
           <View style={styles.loadingContainer}>
             <Text style={[styles.loadingText, isDarkMode && styles.loadingTextDark]}>Đang tải...</Text>
@@ -150,71 +245,77 @@ const MessagesScreen = ({ user, isDarkMode = false, onClose, onCreateNote, onCre
         ) : messages.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={[styles.emptyText, isDarkMode && styles.emptyTextDark]}>
-              Chưa có tin nhắn nào
+              {searchText.trim() ? `Không tìm thấy kết quả cho "${searchText}"` : 'Chưa có tin nhắn nào'}
             </Text>
           </View>
         ) : (
           messages.map((message) => (
-            <TouchableOpacity
+            <SwipeableConversationRow
               key={message.id}
-              style={[styles.messageItem, isDarkMode && styles.messageItemDark]}
-              activeOpacity={0.7}
-              onPress={() => {
-                if (onOpenChat) {
-                  onOpenChat({
-                    id: message.id,
-                    username: message.username,
-                    avatar: message.avatar,
-                  });
-                }
-              }}
+              canDelete={true}
+              isDarkMode={isDarkMode}
+              onDelete={() => handleDeleteConversation(message.id, message.username)}
             >
-            <Image
-              source={
-                (message.avatar && message.avatar.trim() !== '')
-                  ? { uri: message.avatar }
-                  : DEFAULT_AVATAR
-              }
-              style={styles.avatar}
-              defaultSource={DEFAULT_AVATAR}
-            />
-            <View style={styles.messageContent}>
-              <View style={styles.messageHeader}>
-                <Text style={[styles.username, isDarkMode && styles.usernameDark]}>
-                  {message.username}
-                </Text>
-                {message.time && (
-                  <View style={styles.timeContainer}>
-                    {message.unread && <View style={styles.unreadDot} />}
-                    <Text style={[styles.time, isDarkMode && styles.timeDark]}>
-                      {message.time}
+              <TouchableOpacity
+                style={[styles.messageItem, isDarkMode && styles.messageItemDark]}
+                activeOpacity={0.7}
+                onPress={() => {
+                  if (onOpenChat) {
+                    onOpenChat({
+                      id: message.id,
+                      username: message.username,
+                      avatar: message.avatar,
+                    });
+                  }
+                }}
+              >
+                <Image
+                  source={
+                    (message.avatar && message.avatar.trim() !== '')
+                      ? { uri: message.avatar }
+                      : DEFAULT_AVATAR
+                  }
+                  style={styles.avatar}
+                  defaultSource={DEFAULT_AVATAR}
+                />
+                <View style={styles.messageContent}>
+                  <View style={styles.messageHeader}>
+                    <Text style={[styles.username, isDarkMode && styles.usernameDark]}>
+                      {message.username}
+                    </Text>
+                    {message.time && (
+                      <View style={styles.timeContainer}>
+                        {message.unread && <View style={styles.unreadDot} />}
+                        <Text style={[styles.time, isDarkMode && styles.timeDark]}>
+                          {message.time}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.messageFooter}>
+                    {getStatusIcon(message.status)}
+                    <Text
+                      style={[
+                        styles.lastMessage,
+                        isDarkMode && styles.lastMessageDark,
+                        message.unread && (isDarkMode ? styles.lastMessageUnreadDark : styles.lastMessageUnread),
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {message.lastMessage}
                     </Text>
                   </View>
-                )}
-              </View>
-              <View style={styles.messageFooter}>
-                {getStatusIcon(message.status)}
-                <Text
-                  style={[
-                    styles.lastMessage,
-                    isDarkMode && styles.lastMessageDark,
-                    message.unread && (isDarkMode ? styles.lastMessageUnreadDark : styles.lastMessageUnread),
-                  ]}
-                  numberOfLines={1}
-                >
-                  {message.lastMessage}
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity style={styles.cameraButton}>
-              <Ionicons
-                name="camera-outline"
-                size={24}
-                color={isDarkMode ? "#666" : "#8e8e8e"}
-              />
-            </TouchableOpacity>
-          </TouchableOpacity>
-        ))
+                </View>
+                <TouchableOpacity style={styles.cameraButton}>
+                  <Ionicons
+                    name="camera-outline"
+                    size={24}
+                    color={isDarkMode ? "#666" : "#8e8e8e"}
+                  />
+                </TouchableOpacity>
+              </TouchableOpacity>
+            </SwipeableConversationRow>
+          ))
         )}
       </ScrollView>
     </SafeAreaView>
@@ -297,6 +398,10 @@ const styles = StyleSheet.create({
   },
   searchInputDark: {
     color: '#fff',
+  },
+  clearButton: {
+    marginLeft: 8,
+    padding: 2,
   },
   tabsContainer: {
     flexDirection: 'row',
@@ -426,6 +531,15 @@ const styles = StyleSheet.create({
   cameraButton: {
     padding: 5,
     marginLeft: 10,
+  },
+  aiAvatarContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    marginRight: 12,
+    backgroundColor: '#E8F0FE',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

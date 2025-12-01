@@ -28,6 +28,13 @@ const PostDetailScreen = ({ post, currentUser, isDarkMode = false, onClose, onVi
   const [liked, setLiked] = useState(post.isLiked || false);
   const [likesCount, setLikesCount] = useState(post.likes || 0);
   const [commentText, setCommentText] = useState('');
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const scrollViewRef = useRef(null);
+  
+  // Get images array, fallback to single image for backward compatibility
+  const images = postData.images && postData.images.length > 0 
+    ? postData.images 
+    : (postData.image ? [postData.image] : []);
   const [commenting, setCommenting] = useState(false);
   const [commentsList, setCommentsList] = useState(post.commentsList || []);
   const [commentsCount, setCommentsCount] = useState(post.comments || 0);
@@ -117,6 +124,7 @@ const PostDetailScreen = ({ post, currentUser, isDarkMode = false, onClose, onVi
     try {
       const response = await postService.getPostById(post.id);
       if (response.success && response.post) {
+        setPostData(response.post);
         setCommentsList(response.post.commentsList || []);
         setCommentsCount(response.post.comments || 0);
         setShowAllComments(true);
@@ -251,12 +259,53 @@ const PostDetailScreen = ({ post, currentUser, isDarkMode = false, onClose, onVi
           </View>
         </View>
 
-        {/* Post Image */}
-        <Image
-          source={{ uri: post.image }}
-          style={styles.postImage}
-          resizeMode="contain"
-        />
+        {/* Post Images Carousel */}
+        <View style={styles.imageContainer}>
+          <ScrollView
+            ref={scrollViewRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(event) => {
+              const index = Math.round(event.nativeEvent.contentOffset.x / width);
+              setCurrentImageIndex(index);
+            }}
+            scrollEnabled={images.length > 1}
+          >
+            {images.map((imageUri, index) => (
+              <Image
+                key={index}
+                source={{ uri: imageUri }}
+                style={styles.postImage}
+                resizeMode="contain"
+              />
+            ))}
+          </ScrollView>
+          
+          {/* Image Indicator - Text (Top Right) */}
+          {images.length > 1 && (
+            <View style={styles.imageIndicator}>
+              <Text style={[styles.imageIndicatorText, isDarkMode && styles.imageIndicatorTextDark]}>
+                {currentImageIndex + 1}/{images.length}
+              </Text>
+            </View>
+          )}
+          
+          {/* Image Indicator - Dots (Bottom Center) */}
+          {images.length > 1 && (
+            <View style={styles.dotsIndicator}>
+              {images.map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.dot,
+                    index === currentImageIndex && styles.dotActive
+                  ]}
+                />
+              ))}
+            </View>
+          )}
+        </View>
 
         {/* Post Actions */}
         <View style={styles.actions}>
@@ -444,10 +493,57 @@ const styles = StyleSheet.create({
   usernameDark: {
     color: '#fff',
   },
+  imageContainer: {
+    position: 'relative',
+    width: width,
+    height: width,
+    backgroundColor: '#000',
+  },
   postImage: {
     width: width,
     height: width,
     backgroundColor: '#000',
+  },
+  imageIndicator: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    zIndex: 2,
+  },
+  imageIndicatorText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  imageIndicatorTextDark: {
+    color: '#fff',
+  },
+  dotsIndicator: {
+    position: 'absolute',
+    bottom: 10,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    zIndex: 2,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  dotActive: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
   actions: {
     flexDirection: 'row',

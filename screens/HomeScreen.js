@@ -9,6 +9,7 @@ import {
   StatusBar,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,7 +20,7 @@ import NotificationPanel from '../components/NotificationPanel';
 import { postService } from '../services/postService';
 import { handleApiError } from '../utils/errorHandler';
 
-const HomeScreen = ({ user, isDarkMode = false, onLogout, onNavigateToProfile, onNavigateToCreatePost, onNavigateToMessages, onViewUserProfile, onCreateStory, onViewStory, onViewPost, onEditPost }) => {
+const HomeScreen = ({ user, isDarkMode = false, onLogout, onNavigateToProfile, onNavigateToCreatePost, onNavigateToMessages, onNavigateToSearch, onViewUserProfile, onCreateStory, onViewStory, onViewPost, onEditPost }) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -152,6 +153,8 @@ const HomeScreen = ({ user, isDarkMode = false, onLogout, onNavigateToProfile, o
             onNavigateToProfile();
           } else if (tab === 'add' && onNavigateToCreatePost) {
             onNavigateToCreatePost();
+          } else if (tab === 'search' && onNavigateToSearch) {
+            onNavigateToSearch();
           }
         }}
       />
@@ -171,11 +174,13 @@ const HomeScreen = ({ user, isDarkMode = false, onLogout, onNavigateToProfile, o
                 return;
               }
               
+              // Convert postId to string for comparison
+              const postIdStr = postId?.toString();
+              
               // Tìm post trong danh sách hiện tại
               let foundPost = posts.find(p => {
-                const postIdStr = p.id?.toString();
-                const notificationPostIdStr = postId?.toString();
-                return postIdStr === notificationPostIdStr || p.id === postId;
+                const pIdStr = p.id?.toString();
+                return pIdStr === postIdStr || p.id === postId || p.id?.toString() === postIdStr;
               });
               
               if (foundPost) {
@@ -184,22 +189,41 @@ const HomeScreen = ({ user, isDarkMode = false, onLogout, onNavigateToProfile, o
                   onViewPost(foundPost);
                 }
               } else {
-                // Nếu không tìm thấy, load lại posts và tìm
+                // Nếu không tìm thấy, load post cụ thể bằng getPostById
                 try {
-                  const response = await postService.getAllPosts();
-                  if (response.success && response.posts) {
-                    setPosts(response.posts);
-                    foundPost = response.posts.find(p => {
-                      const postIdStr = p.id?.toString();
-                      const notificationPostIdStr = postId?.toString();
-                      return postIdStr === notificationPostIdStr || p.id === postId;
+                  // Đảm bảo postId là string
+                  const postIdToFetch = postIdStr || postId?.toString() || postId;
+                  console.log('Loading post by ID:', postIdToFetch);
+                  
+                  const response = await postService.getPostById(postIdToFetch);
+                  if (response.success && response.post) {
+                    foundPost = response.post;
+                    // Cập nhật danh sách posts nếu cần
+                    setPosts(prevPosts => {
+                      const exists = prevPosts.find(p => {
+                        const pIdStr = p.id?.toString();
+                        const foundIdStr = foundPost.id?.toString();
+                        return pIdStr === foundIdStr || p.id === foundPost.id;
+                      });
+                      if (!exists) {
+                        return [foundPost, ...prevPosts];
+                      }
+                      return prevPosts;
                     });
-                    if (foundPost && onViewPost) {
+                    if (onViewPost) {
                       onViewPost(foundPost);
                     }
+                  } else {
+                    console.error('Post not found:', postIdToFetch);
+                    Alert.alert('Thông báo', 'Bài viết này có thể đã bị xóa hoặc không còn tồn tại.');
                   }
                 } catch (error) {
                   console.error('Error loading post:', error);
+                  if (error.response?.status === 404) {
+                    Alert.alert('Thông báo', 'Bài viết này có thể đã bị xóa hoặc không còn tồn tại.');
+                  } else {
+                    handleApiError(error);
+                  }
                 }
               }
             }}

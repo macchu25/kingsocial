@@ -100,3 +100,9 @@ router.post('/:notificationId/read', verifyToken, async (req, res) => {
 module.exports = router;
 
 
+
+
+
+
+
+

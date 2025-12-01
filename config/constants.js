@@ -14,5 +14,16 @@ export const VALIDATION = {
   PASSWORD_MIN_LENGTH: 6,
 };
 
+// OpenAI Configuration
+// Note: API key is now stored securely on the server in .env file
+// No need to configure it here anymore
+export const OPENAI_CONFIG = {
+  MODEL: 'gpt-3.5-turbo',
+  MAX_TOKENS: 500,
+  TEMPERATURE: 0.7,
+};
+
+
+
 
 

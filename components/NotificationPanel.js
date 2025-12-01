@@ -55,12 +55,16 @@ const NotificationPanel = ({ visible, isDarkMode = false, onClose, currentUserId
         );
       }
       onClose();
-    } else if ((notification.type === 'like' || notification.type === 'comment') && notification.postId) {
+    } else if ((notification.type === 'like' || notification.type === 'comment')) {
       // Navigate to post
-      if (onViewPost) {
+      if (notification.postId && onViewPost) {
         onViewPost(notification.postId);
+        onClose();
+      } else {
+        console.warn('Notification missing postId:', notification);
+        // Still close the panel even if postId is missing
+        onClose();
       }
-      onClose();
     }
   };
 

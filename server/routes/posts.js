@@ -50,12 +50,18 @@ router.get('/', verifyToken, async (req, res) => {
         userAvatar = post.userId.avatar || post.userAvatar || '';
       }
 
+      // Get images array, fallback to single image for backward compatibility
+      const images = post.images && post.images.length > 0 
+        ? post.images 
+        : (post.image ? [post.image] : []);
+      
       return {
         id: post._id.toString(),
         userId: post.userId?._id?.toString() || post.userId?.toString() || post.userId,
         username: username,
         userAvatar: userAvatar,
-        image: post.image,
+        image: images[0] || post.image || '',
+        images: images,
         caption: post.caption || '',
         likes: post.likes?.length || 0,
         isLiked: post.likes?.some(like => like.toString() === req.userId) || false,
@@ -99,12 +105,20 @@ router.get('/', verifyToken, async (req, res) => {
 // Create new post
 router.post('/create', verifyToken, async (req, res) => {
   try {
-    const { image, caption } = req.body;
+    const { image, images, caption } = req.body;
 
-    if (!image) {
+    // Support both single image (backward compatibility) and multiple images
+    let imagesArray = [];
+    if (images && Array.isArray(images) && images.length > 0) {
+      imagesArray = images;
+    } else if (image) {
+      imagesArray = [image];
+    }
+
+    if (imagesArray.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Vui lòng chọn ảnh'
+        message: 'Vui lòng chọn ít nhất một ảnh'
       });
     }
 
@@ -128,7 +142,8 @@ router.post('/create', verifyToken, async (req, res) => {
       userId: req.userId,
       username: user.username,
       userAvatar: user.avatar || '',
-      image,
+      image: imagesArray[0], // Keep for backward compatibility
+      images: imagesArray,
       caption: caption || '',
       likes: [],
       comments: []
@@ -144,7 +159,8 @@ router.post('/create', verifyToken, async (req, res) => {
         userId: post.userId,
         username: post.username,
         userAvatar: post.userAvatar,
-        image: post.image,
+        image: post.images[0] || post.image,
+        images: post.images,
         caption: post.caption,
         likes: 0,
         isLiked: false,
@@ -536,6 +552,11 @@ router.get('/:postId', verifyToken, async (req, res) => {
       };
     }));
 
+    // Get images array, fallback to single image for backward compatibility
+    const images = post.images && post.images.length > 0 
+      ? post.images 
+      : (post.image ? [post.image] : []);
+
     res.json({
       success: true,
       post: {
@@ -543,7 +564,8 @@ router.get('/:postId', verifyToken, async (req, res) => {
         userId: post.userId?._id?.toString() || post.userId?.toString() || post.userId,
         username: username,
         userAvatar: userAvatar,
-        image: post.image,
+        image: images[0] || post.image || '',
+        images: images,
         caption: post.caption || '',
         likes: post.likes?.length || 0,
         isLiked: post.likes?.some(like => like.toString() === req.userId) || false,

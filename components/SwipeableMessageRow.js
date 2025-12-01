@@ -10,24 +10,23 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const SWIPE_THRESHOLD = 30; // Reduced threshold for easier closing
+const SWIPE_THRESHOLD = 30;
 const ACTION_WIDTH = 80;
 
-const SwipeableCommentRow = ({
+const SwipeableMessageRow = ({
   children,
   onDelete,
-  onEdit,
   canDelete,
-  canEdit,
   isDarkMode = false,
   backgroundColor = '#fff',
+  alignRight = false, // For own messages (right aligned)
 }) => {
   const translateX = useRef(new Animated.Value(0)).current;
   const startX = useRef(0);
   const currentX = useRef(0);
   const [isSwiping, setIsSwiping] = useState(false);
 
-  if (!canDelete && !canEdit) {
+  if (!canDelete) {
     // No swipe actions available, just render children
     return <View>{children}</View>;
   }
@@ -55,10 +54,14 @@ const SwipeableCommentRow = ({
       },
       onPanResponderMove: (evt, gestureState) => {
         const { dx } = gestureState;
-        const maxSwipe = canEdit && canDelete ? ACTION_WIDTH * 2 : ACTION_WIDTH;
+        
+        // For right-aligned messages (own messages), swipe left to reveal delete
+        // For left-aligned messages (other messages), swipe right to reveal delete
+        const swipeDirection = alignRight ? -1 : 1;
+        const maxSwipe = ACTION_WIDTH;
         
         // Calculate new position based on current offset and gesture
-        const newX = currentX.current + dx;
+        const newX = currentX.current + (dx * swipeDirection);
         
         // Clamp between -maxSwipe (fully open) and 0 (fully closed)
         const clampedX = Math.max(-maxSwipe, Math.min(0, newX));
@@ -67,24 +70,28 @@ const SwipeableCommentRow = ({
       onPanResponderRelease: (evt, gestureState) => {
         translateX.flattenOffset();
         const { dx } = gestureState;
-        const threshold = canEdit && canDelete ? ACTION_WIDTH * 2 : ACTION_WIDTH;
+        const threshold = ACTION_WIDTH;
         const finalX = translateX._value;
-        const startPosition = currentX.current;
+        const swipeDirection = alignRight ? -1 : 1;
         
         setIsSwiping(false);
         
         // Determine action based on swipe direction and distance
-        // If swiping right (positive dx), always close regardless of distance
-        if (dx > 5) {
-          // Swiping right (closing) - always close
+        // For right-aligned: swipe left (negative dx) opens, swipe right (positive dx) closes
+        // For left-aligned: swipe right (positive dx) opens, swipe left (negative dx) closes
+        const isClosingSwipe = alignRight ? (dx > 5) : (dx < -5);
+        const isOpeningSwipe = alignRight ? (dx < -5) : (dx > 5);
+        
+        if (isClosingSwipe) {
+          // Swiping to close - always close
           Animated.spring(translateX, {
             toValue: 0,
             useNativeDriver: true,
             tension: 50,
             friction: 7,
           }).start();
-        } else if (dx < -5 && finalX < -SWIPE_THRESHOLD) {
-          // Swiping left and reached threshold - open it
+        } else if (isOpeningSwipe && finalX < -SWIPE_THRESHOLD) {
+          // Swiping to open and reached threshold - open it
           Animated.spring(translateX, {
             toValue: -threshold,
             useNativeDriver: true,
@@ -100,7 +107,7 @@ const SwipeableCommentRow = ({
             friction: 7,
           }).start();
         } else {
-          // Not enough movement or swiping right - close it
+          // Not enough movement or swiping to close - close it
           Animated.spring(translateX, {
             toValue: 0,
             useNativeDriver: true,
@@ -132,25 +139,13 @@ const SwipeableCommentRow = ({
     if (onDelete) onDelete();
   };
 
-  const handleEdit = () => {
-    closeSwipe();
-    if (onEdit) onEdit();
-  };
-
-  const totalActionsWidth = (canEdit && canDelete ? ACTION_WIDTH * 2 : ACTION_WIDTH);
-
   return (
     <View style={styles.container}>
-      {/* Action Buttons */}
-      <View style={styles.actionsContainer}>
-        {canEdit && (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.editButton]}
-            onPress={handleEdit}
-          >
-            <Ionicons name="create-outline" size={20} color="#fff" />
-          </TouchableOpacity>
-        )}
+      {/* Action Button - Delete */}
+      <View style={[
+        styles.actionsContainer,
+        alignRight ? styles.actionsContainerRight : styles.actionsContainerLeft
+      ]}>
         {canDelete && (
           <TouchableOpacity
             style={[styles.actionButton, styles.deleteButton]}
@@ -182,21 +177,24 @@ const styles = StyleSheet.create({
   container: {
     position: 'relative',
     overflow: 'hidden',
+    marginBottom: 8,
   },
   actionsContainer: {
     position: 'absolute',
-    right: 0,
     top: 0,
     bottom: 0,
     flexDirection: 'row',
+  },
+  actionsContainerRight: {
+    right: 0,
+  },
+  actionsContainerLeft: {
+    left: 0,
   },
   actionButton: {
     width: ACTION_WIDTH,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  editButton: {
-    backgroundColor: '#0095F6',
   },
   deleteButton: {
     backgroundColor: '#FF3040',
@@ -206,5 +204,7 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SwipeableCommentRow;
+export default SwipeableMessageRow;
+
+
 

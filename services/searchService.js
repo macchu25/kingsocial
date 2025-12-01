@@ -14,34 +14,35 @@ const getBaseUrl = () => {
   return API_URL.replace('/api/auth', '');
 };
 
-export const notificationService = {
-  // Lấy tất cả thông báo
-  getNotifications: async () => {
+export const searchService = {
+  // Tìm kiếm người dùng
+  searchUsers: async (query) => {
     const headers = await getAuthHeaders();
     const baseUrl = getBaseUrl();
-    const response = await axios.get(`${baseUrl}/api/notifications`, {
-      headers,
-    });
+    const response = await axios.get(
+      `${baseUrl}/api/search/users`,
+      {
+        params: { q: query },
+        headers,
+      }
+    );
     return response.data;
   },
 
-  // Đánh dấu thông báo đã đọc
-  markAsRead: async (notificationId) => {
+  // Tìm kiếm bài viết
+  searchPosts: async (query) => {
     const headers = await getAuthHeaders();
     const baseUrl = getBaseUrl();
-    const response = await axios.post(
-      `${baseUrl}/api/notifications/${notificationId}/read`,
-      {},
-      { headers }
+    const response = await axios.get(
+      `${baseUrl}/api/search/posts`,
+      {
+        params: { q: query },
+        headers,
+      }
     );
     return response.data;
   },
 };
-
-
-
-
-
 
 
 

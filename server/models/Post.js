@@ -40,7 +40,11 @@ const postSchema = new mongoose.Schema({
   },
   image: {
     type: String,
-    required: true
+    default: ''
+  },
+  images: {
+    type: [String],
+    default: []
   },
   caption: {
     type: String,
