@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const { sendOTPEmail } = require('../utils/emailService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
@@ -190,6 +192,138 @@ router.post('/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Lỗi server. Vui lòng thử lại sau.' 
+    });
+  }
+});
+
+// Forgot Password - Request OTP code
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Validation
+    if (!email) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Vui lòng nhập email' 
+      });
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Email không hợp lệ' 
+      });
+    }
+
+    // Find user
+    const user = await User.findOne({ email });
+    if (!user) {
+      // Don't reveal if user exists for security
+      return res.json({
+        success: true,
+        message: 'Nếu email tồn tại, chúng tôi đã gửi mã OTP đến email của bạn.'
+      });
+    }
+
+    // Generate 6-digit OTP code
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpHash = crypto.createHash('sha256').update(otpCode).digest('hex');
+    
+    // Save OTP to user (expires in 10 minutes)
+    user.resetPasswordToken = otpHash;
+    user.resetPasswordExpires = Date.now() + 600000; // 10 minutes
+    await user.save();
+
+    // Send OTP via email
+    const emailResult = await sendOTPEmail(email, otpCode);
+
+    // Always return success message (don't reveal if email was sent successfully for security)
+    res.json({
+      success: true,
+      message: 'Mã OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư (bao gồm thư mục spam).'
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Lỗi server. Vui lòng thử lại sau.' 
+    });
+  }
+});
+
+// Reset Password - Use OTP code to reset password
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { email, otpCode, newPassword } = req.body;
+
+    // Validation
+    if (!email || !otpCode || !newPassword) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Vui lòng điền đầy đủ thông tin' 
+      });
+    }
+
+    // Validate OTP format (6 digits)
+    if (!/^\d{6}$/.test(otpCode)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Mã OTP phải là 6 chữ số' 
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Mật khẩu phải có ít nhất 6 ký tự' 
+      });
+    }
+
+    // Find user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Email không tồn tại' 
+      });
+    }
+
+    // Hash the OTP to compare with stored hash
+    const otpHash = crypto.createHash('sha256').update(otpCode).digest('hex');
+
+    // Check if OTP is valid and not expired
+    if (user.resetPasswordToken !== otpHash) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Mã OTP không đúng' 
+      });
+    }
+
+    if (!user.resetPasswordExpires || user.resetPasswordExpires < Date.now()) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Mã OTP đã hết hạn. Vui lòng yêu cầu mã mới.' 
+      });
+    }
+
+    // Update password
+    user.password = newPassword;
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Đặt lại mật khẩu thành công! Vui lòng đăng nhập với mật khẩu mới.'
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Lỗi server. Vui lòng thử lại sau.' 

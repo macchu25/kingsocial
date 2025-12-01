@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Dimensions,
   TextInput,
-  Alert,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
@@ -15,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { postService } from '../services/postService';
 import { followService } from '../services/followService';
 import { handleApiError } from '../utils/errorHandler';
+import { alertSuccess, alertInfo } from '../utils/alert';
 import PostMenuModal from './PostMenuModal';
 import CommentModal from './CommentModal';
 
@@ -311,7 +311,7 @@ const PostItem = ({ post, currentUserId, isDarkMode = false, onUpdate, onViewPro
           try {
             const response = await postService.deletePost(post.id);
             if (response.success) {
-              Alert.alert('Thành công', 'Đã xóa bài viết');
+              alertSuccess('Thành công', 'Đã xóa bài viết');
               if (onUpdate) {
                 onUpdate();
               }
@@ -323,7 +323,7 @@ const PostItem = ({ post, currentUserId, isDarkMode = false, onUpdate, onViewPro
         }}
         onHide={async () => {
           // TODO: Implement hide post
-          Alert.alert('Thông báo', 'Tính năng ẩn bài viết đang được phát triển');
+          alertInfo('Thông báo', 'Tính năng ẩn bài viết đang được phát triển');
         }}
       />
     </View>

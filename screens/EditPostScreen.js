@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   StatusBar,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Image,
   Dimensions,
@@ -15,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { postService } from '../services/postService';
 import { handleApiError } from '../utils/errorHandler';
+import { alertError, alertSuccess } from '../utils/alert';
 
 const { width } = Dimensions.get('window');
 
@@ -24,7 +24,7 @@ const EditPostScreen = ({ post, isDarkMode = false, onPostUpdated, onCancel }) =
 
   const handleUpdate = async () => {
     if (caption.length > 2200) {
-      Alert.alert('Lỗi', 'Caption không được quá 2200 ký tự');
+      alertError('Lỗi', 'Caption không được quá 2200 ký tự');
       return;
     }
 
@@ -34,7 +34,7 @@ const EditPostScreen = ({ post, isDarkMode = false, onPostUpdated, onCancel }) =
       const response = await postService.updatePost(post.id, caption);
 
       if (response.success) {
-        Alert.alert('Thành công', response.message);
+        alertSuccess('Thành công', response.message);
         if (onPostUpdated) {
           onPostUpdated(response.post);
         }

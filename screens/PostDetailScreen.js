@@ -383,7 +383,7 @@ const PostDetailScreen = ({ post, currentUser, isDarkMode = false, onClose, onVi
           try {
             const response = await postService.deletePost(post.id);
             if (response.success) {
-              Alert.alert('Thành công', 'Đã xóa bài viết');
+              alertSuccess('Thành công', 'Đã xóa bài viết');
               if (onClose) {
                 onClose();
               }
@@ -398,7 +398,7 @@ const PostDetailScreen = ({ post, currentUser, isDarkMode = false, onClose, onVi
         }}
         onHide={async () => {
           // TODO: Implement hide post
-          Alert.alert('Thông báo', 'Tính năng ẩn bài viết đang được phát triển');
+          alertInfo('Thông báo', 'Tính năng ẩn bài viết đang được phát triển');
         }}
       />
     </SafeAreaView>

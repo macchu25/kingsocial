@@ -5,7 +5,6 @@ import {
   View,
   TextInput,
   TouchableOpacity,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -14,6 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { noteService } from '../services/noteService';
 import { handleApiError } from '../utils/errorHandler';
+import { alertError, alertSuccess } from '../utils/alert';
 
 const CreateNoteScreen = ({ user, isDarkMode = false, onNoteCreated, onCancel }) => {
   const [text, setText] = useState('');
@@ -21,12 +21,12 @@ const CreateNoteScreen = ({ user, isDarkMode = false, onNoteCreated, onCancel })
 
   const handleSubmit = async () => {
     if (!text.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập nội dung ghi chú');
+      alertError('Lỗi', 'Vui lòng nhập nội dung ghi chú');
       return;
     }
 
     if (text.length > 60) {
-      Alert.alert('Lỗi', 'Ghi chú không được quá 60 ký tự');
+      alertError('Lỗi', 'Ghi chú không được quá 60 ký tự');
       return;
     }
 
@@ -36,7 +36,7 @@ const CreateNoteScreen = ({ user, isDarkMode = false, onNoteCreated, onCancel })
       const response = await noteService.createNote(text.trim());
 
       if (response.success) {
-        Alert.alert('Thành công', response.message);
+        alertSuccess('Thành công', response.message);
         setText('');
         if (onNoteCreated) {
           onNoteCreated();

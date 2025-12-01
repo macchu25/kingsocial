@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StatusBar,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Input from '../components/Input';
 import { profileService } from '../services/profileService';
 import { handleApiError } from '../utils/errorHandler';
+import { alertError, alertSuccess } from '../utils/alert';
 
 const ChangePasswordScreen = ({ user, isDarkMode = false, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
@@ -32,27 +32,27 @@ const ChangePasswordScreen = ({ user, isDarkMode = false, onClose, onSuccess }) 
 
   const validateForm = () => {
     if (!formData.currentPassword) {
-      Alert.alert('Lỗi', 'Vui lòng nhập mật khẩu hiện tại');
+      alertError('Lỗi', 'Vui lòng nhập mật khẩu hiện tại');
       return false;
     }
 
     if (!formData.newPassword) {
-      Alert.alert('Lỗi', 'Vui lòng nhập mật khẩu mới');
+      alertError('Lỗi', 'Vui lòng nhập mật khẩu mới');
       return false;
     }
 
     if (formData.newPassword.length < 6) {
-      Alert.alert('Lỗi', 'Mật khẩu mới phải có ít nhất 6 ký tự');
+      alertError('Lỗi', 'Mật khẩu mới phải có ít nhất 6 ký tự');
       return false;
     }
 
     if (formData.newPassword === formData.currentPassword) {
-      Alert.alert('Lỗi', 'Mật khẩu mới phải khác mật khẩu hiện tại');
+      alertError('Lỗi', 'Mật khẩu mới phải khác mật khẩu hiện tại');
       return false;
     }
 
     if (formData.newPassword !== formData.confirmPassword) {
-      Alert.alert('Lỗi', 'Mật khẩu xác nhận không khớp');
+      alertError('Lỗi', 'Mật khẩu xác nhận không khớp');
       return false;
     }
 
@@ -71,24 +71,19 @@ const ChangePasswordScreen = ({ user, isDarkMode = false, onClose, onSuccess }) 
       );
 
       if (response.success) {
-        Alert.alert('Thành công', response.message, [
-          {
-            text: 'OK',
-            onPress: () => {
-              setFormData({
-                currentPassword: '',
-                newPassword: '',
-                confirmPassword: '',
-              });
-              if (onSuccess) {
-                onSuccess();
-              }
-              if (onClose) {
-                onClose();
-              }
-            },
-          },
-        ]);
+        alertSuccess('Thành công', response.message, () => {
+          setFormData({
+            currentPassword: '',
+            newPassword: '',
+            confirmPassword: '',
+          });
+          if (onSuccess) {
+            onSuccess();
+          }
+          if (onClose) {
+            onClose();
+          }
+        });
       }
     } catch (error) {
       handleApiError(error);

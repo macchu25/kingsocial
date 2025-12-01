@@ -19,6 +19,7 @@ import { followService } from '../services/followService';
 import { userService } from '../services/userService';
 import { postService } from '../services/postService';
 import { handleApiError } from '../utils/errorHandler';
+import { alertDelete } from '../utils/alert';
 
 const { width } = Dimensions.get('window');
 const POST_SIZE = (width - 4) / 3;
@@ -165,24 +166,17 @@ const ProfileScreen = ({ user, currentUser, isDarkMode = false, onLogout, onNavi
   };
 
   const handleLogout = async () => {
-    Alert.alert(
+    alertDelete(
       'Đăng xuất',
       'Bạn có chắc chắn muốn đăng xuất?',
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Đăng xuất',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await storage.clearAll();
-              onLogout();
-            } catch (error) {
-              console.error('Logout error:', error);
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          await storage.clearAll();
+          onLogout();
+        } catch (error) {
+          console.error('Logout error:', error);
+        }
+      }
     );
   };
 

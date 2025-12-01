@@ -11,7 +11,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Animated,
   Dimensions,
 } from 'react-native';
@@ -20,6 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { postService } from '../services/postService';
 import { handleApiError } from '../utils/errorHandler';
+import { alertError } from '../utils/alert';
 import SwipeableCommentRow from './SwipeableCommentRow';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -96,12 +96,12 @@ const CommentModal = ({
           setImageBase64(imageUri);
         } catch (error) {
           console.error('Error converting image:', error);
-          Alert.alert('Lỗi', 'Không thể xử lý ảnh. Vui lòng thử lại.');
+          alertError('Lỗi', 'Không thể xử lý ảnh. Vui lòng thử lại.');
         }
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Lỗi', 'Không thể chọn ảnh. Vui lòng thử lại.');
+      alertError('Lỗi', 'Không thể chọn ảnh. Vui lòng thử lại.');
     }
   };
 
@@ -122,27 +122,20 @@ const CommentModal = ({
   };
 
   const handleDeleteComment = async (commentId) => {
-    Alert.alert(
+    alertDelete(
       'Xóa bình luận',
       'Bạn có chắc chắn muốn xóa bình luận này?',
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await postService.deleteComment(post.id, commentId);
-              if (response.success) {
-                setComments(comments.filter(c => c.id !== commentId));
-                setCommentsCount(response.commentsCount);
-              }
-            } catch (error) {
-              handleApiError(error);
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          const response = await postService.deleteComment(post.id, commentId);
+          if (response.success) {
+            setComments(comments.filter(c => c.id !== commentId));
+            setCommentsCount(response.commentsCount);
+          }
+        } catch (error) {
+          handleApiError(error);
+        }
+      }
     );
   };
 
@@ -202,12 +195,12 @@ const CommentModal = ({
           setEditImageBase64(imageUri);
         } catch (error) {
           console.error('Error converting image:', error);
-          Alert.alert('Lỗi', 'Không thể xử lý ảnh. Vui lòng thử lại.');
+          alertError('Lỗi', 'Không thể xử lý ảnh. Vui lòng thử lại.');
         }
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Lỗi', 'Không thể chọn ảnh. Vui lòng thử lại.');
+      alertError('Lỗi', 'Không thể chọn ảnh. Vui lòng thử lại.');
     }
   };
 

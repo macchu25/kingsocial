@@ -6,9 +6,9 @@ import {
   TouchableOpacity,
   Image,
   Modal,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { alertDelete, alertError } from '../utils/alert';
 
 const DEFAULT_AVATAR = require('../asset/avt.jpg');
 
@@ -16,29 +16,22 @@ const NoteModal = ({ visible, note, isOwnNote, isDarkMode = false, onClose, onEd
   if (!note) return null;
 
   const handleDelete = () => {
-    Alert.alert(
+    alertDelete(
       'Xóa ghi chú',
       'Bạn có chắc chắn muốn xóa ghi chú này?',
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              if (onDelete) {
-                await onDelete();
-                if (onDeleteSuccess) {
-                  onDeleteSuccess();
-                }
-              }
-              onClose();
-            } catch (error) {
-              Alert.alert('Lỗi', 'Không thể xóa ghi chú');
+      async () => {
+        try {
+          if (onDelete) {
+            await onDelete();
+            if (onDeleteSuccess) {
+              onDeleteSuccess();
             }
-          },
-        },
-      ]
+          }
+          onClose();
+        } catch (error) {
+          alertError('Lỗi', 'Không thể xóa ghi chú');
+        }
+      }
     );
   };
 

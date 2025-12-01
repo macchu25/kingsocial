@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
-  Alert,
   ActivityIndicator,
   Image,
   Platform,
@@ -16,6 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { storyService } from '../services/storyService';
 import { handleApiError } from '../utils/errorHandler';
+import { alertError, alertSuccess, alertInfo } from '../utils/alert';
 
 const { width } = Dimensions.get('window');
 
@@ -31,7 +31,7 @@ const CreateStoryScreen = ({ user, onStoryCreated, onCancel }) => {
       if (Platform.OS !== 'web') {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert(
+          alertInfo(
             'Cần quyền truy cập',
             'Ứng dụng cần quyền truy cập thư viện ảnh để chọn ảnh.'
           );
@@ -63,21 +63,21 @@ const CreateStoryScreen = ({ user, onStoryCreated, onCancel }) => {
           setImageBase64(imageUri);
         } catch (error) {
           console.error('Error converting image:', error);
-          Alert.alert('Lỗi', 'Không thể xử lý ảnh. Vui lòng thử lại.');
+          alertError('Lỗi', 'Không thể xử lý ảnh. Vui lòng thử lại.');
         } finally {
           setImageLoading(false);
         }
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Lỗi', 'Không thể chọn ảnh. Vui lòng thử lại.');
+      alertError('Lỗi', 'Không thể chọn ảnh. Vui lòng thử lại.');
       setImageLoading(false);
     }
   };
 
   const handlePost = async () => {
     if (!selectedImage || !imageBase64) {
-      Alert.alert('Lỗi', 'Vui lòng chọn ảnh');
+      alertError('Lỗi', 'Vui lòng chọn ảnh');
       return;
     }
 
@@ -87,7 +87,7 @@ const CreateStoryScreen = ({ user, onStoryCreated, onCancel }) => {
       const response = await storyService.createStory(imageBase64);
 
       if (response.success) {
-        Alert.alert('Thành công', response.message);
+        alertSuccess('Thành công', response.message);
         onStoryCreated();
       }
     } catch (error) {

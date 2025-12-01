@@ -1,5 +1,5 @@
 // API Configuration
-export const API_URL = 'http://192.168.1.7:3000/api/auth'; // Thay đổi IP nếu chạy trên thiết bị thật
+export const API_URL = 'http://192.168.1.8:3000/api/auth'; // Thay đổi IP nếu chạy trên thiết bị thật
 
 // Storage Keys
 export const STORAGE_KEYS = {

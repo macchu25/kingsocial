@@ -6,7 +6,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
   TouchableOpacity,
   Image,
   Animated,
@@ -19,6 +18,7 @@ import { authService } from '../services/authService';
 import { storage } from '../utils/storage';
 import { validateForm } from '../utils/validation';
 import { handleApiError } from '../utils/errorHandler';
+import { alertSuccess } from '../utils/alert';
 
 const { height } = Dimensions.get('window');
 
@@ -76,7 +76,7 @@ const RegisterScreen = ({ onRegisterSuccess, onSwitchToLogin }) => {
       if (response.success) {
         await storage.saveToken(response.token);
         await storage.saveUser(response.user);
-        Alert.alert('Thành công', response.message);
+        alertSuccess('Thành công', response.message);
         onRegisterSuccess(response.user);
         setFormData({ username: '', email: '', password: '' });
       }

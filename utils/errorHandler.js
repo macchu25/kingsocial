@@ -1,4 +1,4 @@
-import { Alert } from 'react-native';
+import { alertError } from './alert';
 
 export const handleApiError = (error) => {
   console.error('API Error:', error);
@@ -30,6 +30,6 @@ export const handleApiError = (error) => {
     message = error.message || 'Lỗi khi gửi yêu cầu';
   }
   
-  Alert.alert('Lỗi', message);
+  alertError('Lỗi', message);
 };
 

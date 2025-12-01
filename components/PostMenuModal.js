@@ -5,10 +5,10 @@ import {
   View,
   TouchableOpacity,
   Modal,
-  Alert,
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { alertDelete, alertError, alertInfo } from '../utils/alert';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -23,49 +23,36 @@ const PostMenuModal = ({
   buttonPosition = { x: 0, y: 0, width: 0, height: 0 }
 }) => {
   const handleDelete = () => {
-    Alert.alert(
+    alertDelete(
       'Xóa bài viết',
       'Bạn có chắc chắn muốn xóa bài viết này?',
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              if (onDelete) {
-                await onDelete();
-              }
-              onClose();
-            } catch (error) {
-              Alert.alert('Lỗi', 'Không thể xóa bài viết');
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          if (onDelete) {
+            await onDelete();
+          }
+          onClose();
+        } catch (error) {
+          alertError('Lỗi', 'Không thể xóa bài viết');
+        }
+      }
     );
   };
 
   const handleHide = () => {
-    Alert.alert(
+    alertInfo(
       'Ẩn bài viết',
       'Bạn có muốn ẩn bài viết này khỏi bảng tin của mình không?',
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Ẩn',
-          onPress: async () => {
-            try {
-              if (onHide) {
-                await onHide();
-              }
-              onClose();
-            } catch (error) {
-              Alert.alert('Lỗi', 'Không thể ẩn bài viết');
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          if (onHide) {
+            await onHide();
+          }
+          onClose();
+        } catch (error) {
+          alertError('Lỗi', 'Không thể ẩn bài viết');
+        }
+      }
     );
   };
 

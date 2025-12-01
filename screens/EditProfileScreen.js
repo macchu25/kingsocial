@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   StatusBar,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Image,
   Platform,
@@ -18,6 +17,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { profileService } from '../services/profileService';
 import { storage } from '../utils/storage';
 import { handleApiError } from '../utils/errorHandler';
+import { alertError, alertSuccess, alertInfo } from '../utils/alert';
 
 const DEFAULT_AVATAR = require('../asset/avt.jpg');
 
@@ -37,7 +37,7 @@ const EditProfileScreen = ({ user, onUpdate, onCancel }) => {
       if (Platform.OS !== 'web') {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert(
+          alertInfo(
             'Cần quyền truy cập',
             'Ứng dụng cần quyền truy cập thư viện ảnh để chọn ảnh đại diện.'
           );
@@ -91,7 +91,7 @@ const EditProfileScreen = ({ user, onUpdate, onCancel }) => {
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Lỗi', 'Không thể chọn ảnh. Vui lòng thử lại.');
+      alertError('Lỗi', 'Không thể chọn ảnh. Vui lòng thử lại.');
       setImageLoading(false);
     }
   };
@@ -101,12 +101,12 @@ const EditProfileScreen = ({ user, onUpdate, onCancel }) => {
 
     // Validation
     if (formData.name && formData.name.length > 50) {
-      Alert.alert('Lỗi', 'Tên không được quá 50 ký tự');
+      alertError('Lỗi', 'Tên không được quá 50 ký tự');
       return;
     }
 
     if (formData.bio && formData.bio.length > 150) {
-      Alert.alert('Lỗi', 'Tiểu sử không được quá 150 ký tự');
+      alertError('Lỗi', 'Tiểu sử không được quá 150 ký tự');
       return;
     }
 
@@ -122,7 +122,7 @@ const EditProfileScreen = ({ user, onUpdate, onCancel }) => {
       if (response.success) {
         // Update local storage
         await storage.saveUser(response.user);
-        Alert.alert('Thành công', response.message);
+        alertSuccess('Thành công', response.message);
         onUpdate(response.user);
       }
     } catch (error) {

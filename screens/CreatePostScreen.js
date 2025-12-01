@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   StatusBar,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Image,
   Platform,
@@ -20,6 +19,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from '@expo/vector-icons';
 import { postService } from '../services/postService';
 import { handleApiError } from '../utils/errorHandler';
+import { alertError, alertSuccess, alertInfo, alertWarning } from '../utils/alert';
 
 const { width } = Dimensions.get('window');
 
@@ -37,7 +37,7 @@ const CreatePostScreen = ({ user, isDarkMode = false, onPostCreated, onCancel, o
         const { status: libraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
         if (libraryStatus !== 'granted' || cameraStatus !== 'granted') {
-          Alert.alert(
+          alertInfo(
             'Cần quyền truy cập',
             'Ứng dụng cần quyền truy cập thư viện ảnh và camera để chọn/chụp ảnh.'
           );
@@ -61,7 +61,7 @@ const CreatePostScreen = ({ user, isDarkMode = false, onPostCreated, onCancel, o
       }
     } catch (error) {
       console.error('Error picking images:', error);
-      Alert.alert('Lỗi', 'Không thể chọn ảnh. Vui lòng thử lại.');
+      alertError('Lỗi', 'Không thể chọn ảnh. Vui lòng thử lại.');
       setImageLoading(false);
     }
   };
@@ -80,7 +80,7 @@ const CreatePostScreen = ({ user, isDarkMode = false, onPostCreated, onCancel, o
       }
     } catch (error) {
       console.error('Error taking photo:', error);
-      Alert.alert('Lỗi', 'Không thể chụp ảnh. Vui lòng thử lại.');
+      alertError('Lỗi', 'Không thể chụp ảnh. Vui lòng thử lại.');
       setImageLoading(false);
     }
   };
@@ -91,7 +91,7 @@ const CreatePostScreen = ({ user, isDarkMode = false, onPostCreated, onCancel, o
     const assetsToProcess = assets.slice(0, maxImages);
     
     if (assets.length > maxImages) {
-      Alert.alert('Thông báo', `Chỉ có thể chọn tối đa ${maxImages} ảnh. Đã chọn ${maxImages} ảnh đầu tiên.`);
+      alertWarning('Thông báo', `Chỉ có thể chọn tối đa ${maxImages} ảnh. Đã chọn ${maxImages} ảnh đầu tiên.`);
     }
     
     setImageLoading(true);
@@ -114,7 +114,7 @@ const CreatePostScreen = ({ user, isDarkMode = false, onPostCreated, onCancel, o
       setImagesBase64(newImagesBase64);
     } catch (error) {
       console.error('Error converting images:', error);
-      Alert.alert('Lỗi', 'Không thể xử lý ảnh. Vui lòng thử lại.');
+      alertError('Lỗi', 'Không thể xử lý ảnh. Vui lòng thử lại.');
     } finally {
       setImageLoading(false);
     }
@@ -122,12 +122,12 @@ const CreatePostScreen = ({ user, isDarkMode = false, onPostCreated, onCancel, o
 
   const handlePost = async () => {
     if (selectedImages.length === 0 || imagesBase64.length === 0) {
-      Alert.alert('Lỗi', 'Vui lòng chọn ít nhất một ảnh');
+      alertError('Lỗi', 'Vui lòng chọn ít nhất một ảnh');
       return;
     }
 
     if (caption.length > 2200) {
-      Alert.alert('Lỗi', 'Caption không được quá 2200 ký tự');
+      alertError('Lỗi', 'Caption không được quá 2200 ký tự');
       return;
     }
 
@@ -137,7 +137,7 @@ const CreatePostScreen = ({ user, isDarkMode = false, onPostCreated, onCancel, o
       const response = await postService.createPost(imagesBase64, caption);
 
       if (response.success) {
-        Alert.alert('Thành công', response.message);
+        alertSuccess('Thành công', response.message);
         onPostCreated();
       }
     } catch (error) {

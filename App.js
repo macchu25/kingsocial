@@ -14,6 +14,8 @@ import EditPostScreen from './screens/EditPostScreen';
 import ChatScreen from './screens/ChatScreen';
 import SearchScreen from './screens/SearchScreen';
 import ChangePasswordScreen from './screens/ChangePasswordScreen';
+import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
+import CustomAlert from './components/CustomAlert';
 import { storage } from './utils/storage';
 
 export default function App() {
@@ -26,6 +28,7 @@ export default function App() {
   const [chatUser, setChatUser] = useState(null);
   const [previousScreen, setPreviousScreen] = useState('home');
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -45,10 +48,12 @@ export default function App() {
 
   const handleLoginSuccess = useCallback((userData) => {
     setUser(userData);
+    setCurrentScreen('home'); // Reset về màn hình home khi đăng nhập thành công
   }, []);
 
   const handleRegisterSuccess = useCallback((userData) => {
     setUser(userData);
+    setCurrentScreen('home'); // Reset về màn hình home khi đăng ký thành công
   }, []);
 
   const handleLogout = useCallback(() => {
@@ -82,7 +87,8 @@ export default function App() {
   if (user) {
     if (currentScreen === 'createNote') {
       return (
-        <CreateNoteScreen
+        <>
+          <CreateNoteScreen
           user={user}
           isDarkMode={isDarkMode}
           onNoteCreated={() => {
@@ -94,11 +100,14 @@ export default function App() {
           }}
           onCancel={() => setCurrentScreen('messages')}
         />
+        <CustomAlert isDarkMode={isDarkMode} />
+      </>
       );
     }
     if (currentScreen === 'chat' && chatUser) {
       return (
-        <ChatScreen
+        <>
+          <ChatScreen
           chatUser={chatUser}
           currentUser={user}
           isDarkMode={isDarkMode}
@@ -107,11 +116,14 @@ export default function App() {
             setCurrentScreen('messages');
           }}
         />
+        <CustomAlert isDarkMode={isDarkMode} />
+      </>
       );
     }
     if (currentScreen === 'messages') {
       return (
-        <MessagesScreen
+        <>
+          <MessagesScreen
           user={user}
           isDarkMode={isDarkMode}
           onClose={() => setCurrentScreen('home')}
@@ -126,11 +138,14 @@ export default function App() {
             setCurrentScreen('chat');
           }}
         />
+        <CustomAlert isDarkMode={isDarkMode} />
+      </>
       );
     }
     if (currentScreen === 'changePassword') {
       return (
-        <ChangePasswordScreen
+        <>
+          <ChangePasswordScreen
           user={user}
           isDarkMode={isDarkMode}
           onClose={() => setCurrentScreen('settings')}
@@ -139,11 +154,14 @@ export default function App() {
             setCurrentScreen('settings');
           }}
         />
+        <CustomAlert isDarkMode={isDarkMode} />
+      </>
       );
     }
     if (currentScreen === 'settings') {
       return (
-        <SettingsScreen
+        <>
+          <SettingsScreen
           user={user}
           isDarkMode={isDarkMode}
           onToggleTheme={handleToggleTheme}
@@ -151,11 +169,14 @@ export default function App() {
           onLogout={handleLogout}
           onChangePassword={() => setCurrentScreen('changePassword')}
         />
+        <CustomAlert isDarkMode={isDarkMode} />
+      </>
       );
     }
     if (currentScreen === 'postDetail' && viewingPost) {
       return (
-        <PostDetailScreen
+        <>
+          <PostDetailScreen
           post={viewingPost}
           currentUser={user}
           isDarkMode={isDarkMode}
@@ -173,11 +194,14 @@ export default function App() {
             setCurrentScreen('editPost');
           }}
         />
+        <CustomAlert isDarkMode={isDarkMode} />
+      </>
       );
     }
     if (currentScreen === 'viewStory' && viewingStory) {
       return (
-        <ViewStoryScreen
+        <>
+          <ViewStoryScreen
           storyUser={viewingStory}
           currentUser={user}
           onClose={() => setCurrentScreen('home')}
@@ -185,11 +209,14 @@ export default function App() {
             // Refresh stories will be handled by StoriesSection
           }}
         />
+        <CustomAlert isDarkMode={isDarkMode} />
+      </>
       );
     }
     if (currentScreen === 'createStory') {
       return (
-        <CreateStoryScreen
+        <>
+          <CreateStoryScreen
           user={user}
           onStoryCreated={() => {
             setCurrentScreen('home');
@@ -197,11 +224,14 @@ export default function App() {
           }}
           onCancel={() => setCurrentScreen('home')}
         />
+        <CustomAlert isDarkMode={isDarkMode} />
+      </>
       );
     }
     if (currentScreen === 'createPost') {
       return (
-        <CreatePostScreen
+        <>
+          <CreatePostScreen
           user={user}
           isDarkMode={isDarkMode}
           onPostCreated={() => setCurrentScreen('home')}
@@ -210,20 +240,26 @@ export default function App() {
           onNavigateToProfile={() => setCurrentScreen('profile')}
           onNavigateToSearch={() => setCurrentScreen('search')}
         />
+        <CustomAlert isDarkMode={isDarkMode} />
+      </>
       );
     }
     if (currentScreen === 'editProfile') {
       return (
-        <EditProfileScreen
+        <>
+          <EditProfileScreen
           user={user}
           onUpdate={handleUpdateUser}
           onCancel={() => setCurrentScreen('profile')}
         />
+        <CustomAlert isDarkMode={isDarkMode} />
+      </>
       );
     }
     if (currentScreen === 'userProfile' && viewingUser) {
       return (
-        <ProfileScreen
+        <>
+          <ProfileScreen
           user={viewingUser}
           currentUser={user}
           isDarkMode={isDarkMode}
@@ -236,11 +272,14 @@ export default function App() {
             setCurrentScreen('postDetail');
           }}
         />
+        <CustomAlert isDarkMode={isDarkMode} />
+      </>
       );
     }
     if (currentScreen === 'profile') {
       return (
-        <ProfileScreen
+        <>
+          <ProfileScreen
           user={user}
           currentUser={user}
           isDarkMode={isDarkMode}
@@ -255,11 +294,14 @@ export default function App() {
             setCurrentScreen('postDetail');
           }}
         />
+        <CustomAlert isDarkMode={isDarkMode} />
+      </>
       );
     }
     if (currentScreen === 'search') {
       return (
-        <SearchScreen
+        <>
+          <SearchScreen
           user={user}
           isDarkMode={isDarkMode}
           onClose={() => setCurrentScreen('home')}
@@ -273,41 +315,62 @@ export default function App() {
             setCurrentScreen('postDetail');
           }}
         />
+        <CustomAlert isDarkMode={isDarkMode} />
+      </>
       );
     }
     return (
-      <HomeScreen
-        onEditPost={(post) => {
-          setEditingPost(post);
-          setPreviousScreen(currentScreen);
-          setCurrentScreen('editPost');
-        }}
-        user={user}
-        isDarkMode={isDarkMode}
-        onLogout={handleLogout}
-        onNavigateToProfile={() => setCurrentScreen('profile')}
-        onNavigateToCreatePost={() => setCurrentScreen('createPost')}
-        onNavigateToMessages={() => setCurrentScreen('messages')}
-        onNavigateToSearch={() => setCurrentScreen('search')}
-        onViewUserProfile={handleViewUserProfile}
-        onCreateStory={() => setCurrentScreen('createStory')}
-        onViewStory={(storyUser) => {
-          setViewingStory(storyUser);
-          setCurrentScreen('viewStory');
-        }}
-        onViewPost={(post) => {
-          setPreviousScreen('home');
-          setViewingPost(post);
-          setCurrentScreen('postDetail');
-        }}
-      />
+      <>
+        <HomeScreen
+          onEditPost={(post) => {
+            setEditingPost(post);
+            setPreviousScreen(currentScreen);
+            setCurrentScreen('editPost');
+          }}
+          user={user}
+          isDarkMode={isDarkMode}
+          onLogout={handleLogout}
+          onNavigateToProfile={() => setCurrentScreen('profile')}
+          onNavigateToCreatePost={() => setCurrentScreen('createPost')}
+          onNavigateToMessages={() => setCurrentScreen('messages')}
+          onNavigateToSearch={() => setCurrentScreen('search')}
+          onViewUserProfile={handleViewUserProfile}
+          onCreateStory={() => setCurrentScreen('createStory')}
+          onViewStory={(storyUser) => {
+            setViewingStory(storyUser);
+            setCurrentScreen('viewStory');
+          }}
+          onViewPost={(post) => {
+            setPreviousScreen('home');
+            setViewingPost(post);
+            setCurrentScreen('postDetail');
+          }}
+        />
+        <CustomAlert isDarkMode={isDarkMode} />
+      </>
+    );
+  }
+
+  if (showForgotPassword) {
+    return (
+      <>
+        <ForgotPasswordScreen
+          onClose={() => setShowForgotPassword(false)}
+          onBackToLogin={() => setShowForgotPassword(false)}
+        />
+        <CustomAlert isDarkMode={isDarkMode} />
+      </>
     );
   }
 
   return (
-    <AuthScreen
-      onLoginSuccess={handleLoginSuccess}
-      onRegisterSuccess={handleRegisterSuccess}
-    />
+    <>
+      <AuthScreen
+        onLoginSuccess={handleLoginSuccess}
+        onRegisterSuccess={handleRegisterSuccess}
+        onForgotPassword={() => setShowForgotPassword(true)}
+      />
+      <CustomAlert isDarkMode={isDarkMode} />
+    </>
   );
 }

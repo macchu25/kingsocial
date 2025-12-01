@@ -19,6 +19,7 @@ import BottomNavigation from '../components/BottomNavigation';
 import NotificationPanel from '../components/NotificationPanel';
 import { postService } from '../services/postService';
 import { handleApiError } from '../utils/errorHandler';
+import { alertInfo } from '../utils/alert';
 
 const HomeScreen = ({ user, isDarkMode = false, onLogout, onNavigateToProfile, onNavigateToCreatePost, onNavigateToMessages, onNavigateToSearch, onViewUserProfile, onCreateStory, onViewStory, onViewPost, onEditPost }) => {
   const [posts, setPosts] = useState([]);
@@ -215,12 +216,12 @@ const HomeScreen = ({ user, isDarkMode = false, onLogout, onNavigateToProfile, o
                     }
                   } else {
                     console.error('Post not found:', postIdToFetch);
-                    Alert.alert('Thông báo', 'Bài viết này có thể đã bị xóa hoặc không còn tồn tại.');
+                    alertInfo('Thông báo', 'Bài viết này có thể đã bị xóa hoặc không còn tồn tại.');
                   }
                 } catch (error) {
                   console.error('Error loading post:', error);
                   if (error.response?.status === 404) {
-                    Alert.alert('Thông báo', 'Bài viết này có thể đã bị xóa hoặc không còn tồn tại.');
+                    alertInfo('Thông báo', 'Bài viết này có thể đã bị xóa hoặc không còn tồn tại.');
                   } else {
                     handleApiError(error);
                   }

@@ -12,7 +12,6 @@ import {
   Platform,
   ActivityIndicator,
   RefreshControl,
-  Alert,
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,6 +21,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { messageService } from '../services/messageService';
 import { chatGPTService } from '../services/chatGPTService';
 import { handleApiError } from '../utils/errorHandler';
+import { alertError, alertInfo, alertWarning } from '../utils/alert';
 
 const DEFAULT_AVATAR = require('../asset/avt.jpg');
 const CHAT_BACKGROUND = require('../asset/zsa.jpg');
@@ -169,7 +169,7 @@ const ChatScreen = ({
 
     // AI chat doesn't support images
     if (isAIChat && imageBase64) {
-      Alert.alert('Thông báo', 'ChatGPT hiện không hỗ trợ gửi ảnh. Vui lòng chỉ gửi tin nhắn văn bản.');
+      alertInfo('Thông báo', 'ChatGPT hiện không hỗ trợ gửi ảnh. Vui lòng chỉ gửi tin nhắn văn bản.');
       return;
     }
 
@@ -230,7 +230,7 @@ const ChatScreen = ({
           }, 100);
         } else {
           // Show error message
-          Alert.alert('Lỗi', response.message || 'Không thể nhận phản hồi từ ChatGPT.');
+          alertError('Lỗi', response.message || 'Không thể nhận phản hồi từ ChatGPT.');
         }
       } else {
         // Handle regular chat
@@ -246,7 +246,7 @@ const ChatScreen = ({
         } else {
           // Remove temp message on error
           setMessages(prev => prev.filter(m => m.id !== userMessage.id));
-          Alert.alert('Lỗi', 'Không thể gửi tin nhắn. Vui lòng thử lại.');
+          alertError('Lỗi', 'Không thể gửi tin nhắn. Vui lòng thử lại.');
         }
       }
     } catch (error) {
@@ -281,7 +281,7 @@ const ChatScreen = ({
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Lỗi', 'Không thể chọn ảnh. Vui lòng thử lại.');
+      alertError('Lỗi', 'Không thể chọn ảnh. Vui lòng thử lại.');
     }
   };
 
@@ -290,7 +290,7 @@ const ChatScreen = ({
       // Check camera permissions first
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
+        alertWarning(
           'Quyền truy cập bị từ chối',
           'Cần quyền truy cập camera để chụp ảnh. Vui lòng cấp quyền trong cài đặt.'
         );
@@ -324,34 +324,16 @@ const ChatScreen = ({
       if (errorMessage.includes('Failed to resolve activity') || 
           errorMessage.includes('resolve activity') ||
           errorMessage.includes('rejected')) {
-        Alert.alert(
+        alertWarning(
           'Camera không khả dụng',
           'Camera không khả dụng trên thiết bị/emulator này. Vui lòng chọn ảnh từ thư viện thay thế.',
-          [
-            {
-              text: 'Chọn từ thư viện',
-              onPress: () => handlePickImage(),
-            },
-            {
-              text: 'Hủy',
-              style: 'cancel',
-            },
-          ]
+          () => handlePickImage()
         );
       } else {
-        Alert.alert(
+        alertError(
           'Lỗi', 
           `Không thể chụp ảnh: ${errorMessage}. Vui lòng thử lại hoặc chọn ảnh từ thư viện.`,
-          [
-            {
-              text: 'Chọn từ thư viện',
-              onPress: () => handlePickImage(),
-            },
-            {
-              text: 'OK',
-              style: 'cancel',
-            },
-          ]
+          () => handlePickImage()
         );
       }
     }

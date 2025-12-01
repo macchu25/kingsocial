@@ -8,13 +8,13 @@ import {
   TouchableOpacity,
   StatusBar,
   TextInput,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import NotesSection from '../components/NotesSection';
 import { followService } from '../services/followService';
 import { handleApiError } from '../utils/errorHandler';
+import { alertDelete } from '../utils/alert';
 import SwipeableConversationRow from '../components/SwipeableConversationRow';
 
 const DEFAULT_AVATAR = require('../asset/avt.jpg');
@@ -87,24 +87,14 @@ const MessagesScreen = ({ user, isDarkMode = false, onClose, onCreateNote, onCre
       return;
     }
 
-    Alert.alert(
+    alertDelete(
       'Xóa cuộc trò chuyện',
       `Bạn có chắc chắn muốn xóa cuộc trò chuyện với ${username}?`,
-      [
-        {
-          text: 'Hủy',
-          style: 'cancel',
-        },
-        {
-          text: 'Xóa',
-          style: 'destructive',
-          onPress: () => {
-            // Remove from both messages and allMessages lists
-            setMessages(prev => prev.filter(m => m.id !== messageId));
-            setAllMessages(prev => prev.filter(m => m.id !== messageId));
-          },
-        },
-      ]
+      () => {
+        // Remove from both messages and allMessages lists
+        setMessages(prev => prev.filter(m => m.id !== messageId));
+        setAllMessages(prev => prev.filter(m => m.id !== messageId));
+      }
     );
   };
 

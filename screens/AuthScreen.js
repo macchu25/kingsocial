@@ -5,7 +5,6 @@ import {
   View,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   TouchableOpacity,
   Image,
   Animated,
@@ -19,10 +18,11 @@ import { authService } from '../services/authService';
 import { storage } from '../utils/storage';
 import { validateForm } from '../utils/validation';
 import { handleApiError } from '../utils/errorHandler';
+import { alertSuccess } from '../utils/alert';
 
 const { height } = Dimensions.get('window');
 
-const AuthScreen = ({ onLoginSuccess, onRegisterSuccess }) => {
+const AuthScreen = ({ onLoginSuccess, onRegisterSuccess, onForgotPassword }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [loginFormData, setLoginFormData] = useState({
@@ -95,7 +95,7 @@ const AuthScreen = ({ onLoginSuccess, onRegisterSuccess }) => {
       if (response.success) {
         await storage.saveToken(response.token);
         await storage.saveUser(response.user);
-        Alert.alert('Thành công', response.message);
+        alertSuccess('Thành công', response.message);
         onLoginSuccess(response.user);
         setLoginFormData({ email: '', password: '', rememberMe: false });
       }
@@ -114,7 +114,7 @@ const AuthScreen = ({ onLoginSuccess, onRegisterSuccess }) => {
     }
 
     if (registerFormData.password !== registerFormData.confirmPassword) {
-      Alert.alert('Lỗi', 'Mật khẩu xác nhận không khớp');
+      alertError('Lỗi', 'Mật khẩu xác nhận không khớp');
       return;
     }
 
@@ -130,7 +130,7 @@ const AuthScreen = ({ onLoginSuccess, onRegisterSuccess }) => {
       if (response.success) {
         await storage.saveToken(response.token);
         await storage.saveUser(response.user);
-        Alert.alert('Thành công', response.message);
+        alertSuccess('Thành công', response.message);
         onRegisterSuccess(response.user);
         setRegisterFormData({ username: '', email: '', password: '', confirmPassword: '' });
       }
@@ -200,7 +200,7 @@ const AuthScreen = ({ onLoginSuccess, onRegisterSuccess }) => {
                     </TouchableOpacity>
                     <Text style={styles.rememberMeText}>Remember Me</Text>
                   </View>
-                  <TouchableOpacity>
+                  <TouchableOpacity onPress={onForgotPassword}>
                     <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
                   </TouchableOpacity>
                 </View>
@@ -294,8 +294,9 @@ const styles = StyleSheet.create({
     paddingTop: 50,
   },
   logo: {
-    width: 200,
-    height: 90,
+    
+    width: 400,
+    height: 400,
   },
   formContainer: {
     position: 'absolute',
