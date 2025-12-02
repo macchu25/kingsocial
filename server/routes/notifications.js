@@ -45,6 +45,7 @@ router.get('/', verifyToken, async (req, res) => {
       fromUsername: notif.fromUsername,
       fromUserAvatar: notif.fromUserAvatar || '',
       postId: notif.postId ? notif.postId.toString() : null,
+      commentText: notif.commentText || '',
       read: notif.read,
       createdAt: notif.createdAt
     }));
@@ -98,6 +99,7 @@ router.post('/:notificationId/read', verifyToken, async (req, res) => {
 });
 
 module.exports = router;
+
 
 
 

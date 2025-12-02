@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import AuthScreen from './screens/AuthScreen';
 import HomeScreen from './screens/HomeScreen';
+import ReelScreen from './screens/ReelScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import EditProfileScreen from './screens/EditProfileScreen';
 import CreatePostScreen from './screens/CreatePostScreen';
@@ -265,6 +266,7 @@ export default function App() {
           isDarkMode={isDarkMode}
           onLogout={handleLogout}
           onNavigateToHome={handleBackFromUserProfile}
+          onNavigateToReels={() => setCurrentScreen('reels')}
           onEditProfile={() => setCurrentScreen('editProfile')}
           onViewPost={(post) => {
             setPreviousScreen('userProfile');
@@ -285,6 +287,7 @@ export default function App() {
           isDarkMode={isDarkMode}
           onLogout={handleLogout}
           onNavigateToHome={() => setCurrentScreen('home')}
+          onNavigateToReels={() => setCurrentScreen('reels')}
           onEditProfile={() => setCurrentScreen('editProfile')}
           onNavigateToSettings={() => setCurrentScreen('settings')}
           onNavigateToSearch={() => setCurrentScreen('search')}
@@ -308,11 +311,38 @@ export default function App() {
           onViewUserProfile={handleViewUserProfile}
           onNavigateToHome={() => setCurrentScreen('home')}
           onNavigateToProfile={() => setCurrentScreen('profile')}
+          onNavigateToReels={() => setCurrentScreen('reels')}
           onNavigateToCreatePost={() => setCurrentScreen('createPost')}
           onViewPost={(post) => {
             setPreviousScreen('search');
             setViewingPost(post);
             setCurrentScreen('postDetail');
+          }}
+        />
+        <CustomAlert isDarkMode={isDarkMode} />
+      </>
+      );
+    }
+    if (currentScreen === 'reels') {
+      return (
+        <>
+          <ReelScreen
+          user={user}
+          isDarkMode={isDarkMode}
+          onNavigateToProfile={() => setCurrentScreen('profile')}
+          onNavigateToCreatePost={() => setCurrentScreen('createPost')}
+          onNavigateToSearch={() => setCurrentScreen('search')}
+          onNavigateToHome={() => setCurrentScreen('home')}
+          onViewUserProfile={handleViewUserProfile}
+          onViewPost={(post) => {
+            setPreviousScreen('reels');
+            setViewingPost(post);
+            setCurrentScreen('postDetail');
+          }}
+          onEditPost={(post) => {
+            setEditingPost(post);
+            setPreviousScreen('reels');
+            setCurrentScreen('editPost');
           }}
         />
         <CustomAlert isDarkMode={isDarkMode} />
@@ -334,6 +364,7 @@ export default function App() {
           onNavigateToCreatePost={() => setCurrentScreen('createPost')}
           onNavigateToMessages={() => setCurrentScreen('messages')}
           onNavigateToSearch={() => setCurrentScreen('search')}
+          onNavigateToReels={() => setCurrentScreen('reels')}
           onViewUserProfile={handleViewUserProfile}
           onCreateStory={() => setCurrentScreen('createStory')}
           onViewStory={(storyUser) => {

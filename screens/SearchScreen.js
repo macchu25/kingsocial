@@ -20,7 +20,7 @@ import { handleApiError } from '../utils/errorHandler';
 const { width } = Dimensions.get('window');
 const DEFAULT_AVATAR = require('../asset/avt.jpg');
 
-const SearchScreen = ({ user, isDarkMode = false, onClose, onViewUserProfile, onViewPost, onNavigateToHome, onNavigateToProfile, onNavigateToCreatePost }) => {
+const SearchScreen = ({ user, isDarkMode = false, onClose, onViewUserProfile, onViewPost, onNavigateToHome, onNavigateToProfile, onNavigateToReels, onNavigateToCreatePost }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'users', 'posts'
   const [loading, setLoading] = useState(false);
@@ -353,6 +353,8 @@ const SearchScreen = ({ user, isDarkMode = false, onClose, onViewUserProfile, on
         onTabChange={(tab) => {
           if (tab === 'home' && onNavigateToHome) {
             onNavigateToHome();
+          } else if (tab === 'reels' && onNavigateToReels) {
+            onNavigateToReels();
           } else if (tab === 'profile' && onNavigateToProfile) {
             onNavigateToProfile();
           } else if (tab === 'add' && onNavigateToCreatePost) {

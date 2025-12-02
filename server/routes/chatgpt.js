@@ -1,37 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
-const jwt = require('jsonwebtoken');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-
-// Middleware to verify token
-const verifyToken = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1] || req.headers.authorization;
-
-  if (!token) {
-    return res.status(401).json({
-      success: false,
-      message: 'Không có token xác thực'
-    });
-  }
-
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.userId = decoded.userId;
-    req.username = decoded.username;
-    next();
-  } catch (error) {
-    return res.status(401).json({
-      success: false,
-      message: 'Token không hợp lệ'
-    });
-  }
-};
+const { verifyToken } = require('../middleware/auth');
+const { chatGPTLimiter } = require('../middleware/rateLimiter');
 
 // Send message to Google Gemini via backend proxy
 // Set USE_MOCK_AI=true in .env to use simple mock responses (no API needed)
-router.post('/chat', verifyToken, async (req, res) => {
+router.post('/chat', chatGPTLimiter, verifyToken, async (req, res) => {
   try {
     const { message, conversationHistory = [] } = req.body;
     

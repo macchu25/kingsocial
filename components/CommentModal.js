@@ -46,6 +46,7 @@ const CommentModal = ({
   const [editText, setEditText] = useState('');
   const [editImage, setEditImage] = useState(null);
   const [editImageBase64, setEditImageBase64] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const swipeRefs = useRef({});
 
   useEffect(() => {
@@ -261,6 +262,16 @@ const CommentModal = ({
     return 'Vừa xong';
   };
 
+  // Filter comments based on search query
+  const filteredComments = comments.filter(comment => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      comment.username?.toLowerCase().includes(query) ||
+      comment.text?.toLowerCase().includes(query)
+    );
+  });
+
   return (
     <Modal
       visible={visible}
@@ -286,6 +297,23 @@ const CommentModal = ({
               </Text>
             </View>
 
+            {/* Search Bar */}
+            <View style={[styles.searchContainer, isDarkMode && styles.searchContainerDark]}>
+              <Ionicons name="search-outline" size={20} color={isDarkMode ? "#666" : "#8e8e8e"} />
+              <TextInput
+                style={[styles.searchInput, isDarkMode && styles.searchInputDark]}
+                placeholder="Tìm kiếm bình luận..."
+                placeholderTextColor={isDarkMode ? "#666" : "#8e8e8e"}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-circle" size={20} color={isDarkMode ? "#666" : "#8e8e8e"} />
+                </TouchableOpacity>
+              )}
+            </View>
+
             {/* Comments List */}
             <ScrollView
               style={styles.commentsScroll}
@@ -298,14 +326,14 @@ const CommentModal = ({
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color={isDarkMode ? "#fff" : "#000"} />
                 </View>
-              ) : comments.length === 0 ? (
+              ) : filteredComments.length === 0 ? (
                 <View style={styles.emptyContainer}>
                   <Text style={[styles.emptyText, isDarkMode && styles.emptyTextDark]}>
-                    Chưa có bình luận nào
+                    {searchQuery.trim() ? 'Không tìm thấy bình luận nào' : 'Chưa có bình luận nào'}
                   </Text>
                 </View>
               ) : (
-                comments.map((comment, index) => {
+                filteredComments.map((comment, index) => {
                   const isCommentOwner = comment.userId === currentUser?.id;
                   const isPostOwner = post?.userId === currentUser?.id;
                   const canEdit = isCommentOwner;
@@ -578,6 +606,28 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   headerTitleDark: {
+    color: '#fff',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    backgroundColor: '#f5f5f5',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#dbdbdb',
+  },
+  searchContainerDark: {
+    backgroundColor: '#2a2a2a',
+    borderBottomColor: '#333',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#000',
+    marginLeft: 10,
+  },
+  searchInputDark: {
     color: '#fff',
   },
   imagePreviewContainer: {

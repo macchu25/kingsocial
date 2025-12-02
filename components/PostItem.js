@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo, useMemo, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import { Video } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { postService } from '../services/postService';
 import { followService } from '../services/followService';
@@ -31,13 +32,23 @@ const PostItem = ({ post, currentUserId, isDarkMode = false, onUpdate, onViewPro
   const [menuVisible, setMenuVisible] = useState(false);
   const [buttonPosition, setButtonPosition] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const moreButtonRef = useRef(null);
   const scrollViewRef = useRef(null);
+  const videoRef = useRef(null);
+  const lastTap = useRef(null);
   
   // Get images array, fallback to single image for backward compatibility
-  const images = post.images && post.images.length > 0 
-    ? post.images 
-    : (post.image ? [post.image] : []);
+  const images = useMemo(() => {
+    return post.images && post.images.length > 0 
+      ? post.images 
+      : (post.image ? [post.image] : []);
+  }, [post.images, post.image]);
+
+  // Check if post is a reel (video)
+  const isReel = useMemo(() => {
+    return post.type === 'reel' || (images.length > 0 && images[0]?.includes('data:video/'));
+  }, [post.type, images]);
 
   const isOwnPost = currentUserId === post.userId;
 
@@ -53,7 +64,7 @@ const PostItem = ({ post, currentUserId, isDarkMode = false, onUpdate, onViewPro
     }
   }, [post.userId, isOwnPost]);
 
-  const checkFollowStatus = async () => {
+  const checkFollowStatus = useCallback(async () => {
     if (!post.userId) return;
     try {
       const response = await followService.checkFollowStatus(post.userId);
@@ -63,9 +74,9 @@ const PostItem = ({ post, currentUserId, isDarkMode = false, onUpdate, onViewPro
     } catch (error) {
       // Silent fail
     }
-  };
+  }, [post.userId]);
 
-  const handleFollow = async () => {
+  const handleFollow = useCallback(async () => {
     if (!post.userId || isOwnPost) return;
 
     setFollowingLoading(true);
@@ -79,15 +90,15 @@ const PostItem = ({ post, currentUserId, isDarkMode = false, onUpdate, onViewPro
     } finally {
       setFollowingLoading(false);
     }
-  };
+  }, [post.userId, isOwnPost]);
 
-  const handleViewProfile = () => {
+  const handleViewProfile = useCallback(() => {
     if (onViewProfile && post.userId) {
       onViewProfile(post.userId, post.username, post.userAvatar);
     }
-  };
+  }, [onViewProfile, post.userId, post.username, post.userAvatar]);
 
-  const handleLike = async () => {
+  const handleLike = useCallback(async () => {
     const previousLiked = liked;
     const previousCount = likesCount;
     
@@ -111,10 +122,10 @@ const PostItem = ({ post, currentUserId, isDarkMode = false, onUpdate, onViewPro
       setLikesCount(previousCount);
       handleApiError(error);
     }
-  };
+  }, [liked, likesCount, post.id]);
 
 
-  const formatTime = (date) => {
+  const formatTime = useCallback((date) => {
     if (!date) return '';
     const now = new Date();
     const postDate = new Date(date);
@@ -125,7 +136,7 @@ const PostItem = ({ post, currentUserId, isDarkMode = false, onUpdate, onViewPro
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} giờ trước`;
     if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} ngày trước`;
     return postDate.toLocaleDateString('vi-VN');
-  };
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -199,19 +210,73 @@ const PostItem = ({ post, currentUserId, isDarkMode = false, onUpdate, onViewPro
           }}
           scrollEnabled={images.length > 1}
         >
-          {images.map((imageUri, index) => (
-            <TouchableOpacity 
-              key={index}
-              onPress={() => onViewPost && onViewPost(post)}
-              activeOpacity={0.95}
-            >
-              <Image
-                source={{ uri: imageUri }}
-                style={styles.postImage}
-                resizeMode="cover"
-              />
-            </TouchableOpacity>
-          ))}
+          {images.map((imageUri, index) => {
+            const isVideo = isReel && (imageUri.includes('data:video/') || imageUri.includes('.mp4') || imageUri.includes('.mov'));
+            
+            const handlePress = () => {
+              if (isVideo) {
+                const now = Date.now();
+                const DOUBLE_PRESS_DELAY = 300;
+                
+                if (lastTap.current && (now - lastTap.current) < DOUBLE_PRESS_DELAY) {
+                  // Double tap detected - open post detail
+                  onViewPost && onViewPost(post);
+                  lastTap.current = null;
+                } else {
+                  // Single tap - toggle play/pause
+                  lastTap.current = now;
+                  setTimeout(() => {
+                    if (lastTap.current === now) {
+                      // Single tap confirmed
+                      if (isVideoPlaying && videoRef.current) {
+                        videoRef.current.pauseAsync();
+                        setIsVideoPlaying(false);
+                      } else if (videoRef.current) {
+                        videoRef.current.playAsync();
+                        setIsVideoPlaying(true);
+                      }
+                      lastTap.current = null;
+                    }
+                  }, DOUBLE_PRESS_DELAY);
+                }
+              } else {
+                // For images, single tap opens post detail
+                onViewPost && onViewPost(post);
+              }
+            };
+            
+            return (
+              <TouchableOpacity 
+                key={index}
+                onPress={handlePress}
+                activeOpacity={0.95}
+              >
+                {isVideo ? (
+                  <Video
+                    ref={videoRef}
+                    source={{ uri: imageUri }}
+                    style={styles.postImage}
+                    resizeMode="cover"
+                    shouldPlay={false}
+                    isLooping
+                    isMuted={false}
+                    useNativeControls={false}
+                    onPlaybackStatusUpdate={(status) => {
+                      setIsVideoPlaying(status.isPlaying);
+                    }}
+                  />
+                ) : (
+                  <Image
+                    source={{ uri: imageUri }}
+                    style={styles.postImage}
+                    resizeMode="cover"
+                    progressiveRenderingEnabled={true}
+                    cache="force-cache"
+                  />
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
         
         {/* Image Indicator - Text (Top Right) */}
@@ -567,5 +632,5 @@ const styles = StyleSheet.create({
   },
 });
 
-export default PostItem;
+export default memo(PostItem);
 

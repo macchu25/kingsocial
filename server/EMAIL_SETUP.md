@@ -151,3 +151,4 @@ Mã OTP: 123456
 - [Nodemailer Documentation](https://nodemailer.com/about/)
 - [SMTP Settings cho các email provider](https://www.arclab.com/en/kb/email/list-of-smtp-and-pop3-servers-mailserver-settings.html)
 
+

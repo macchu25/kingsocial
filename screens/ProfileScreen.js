@@ -26,7 +26,7 @@ const POST_SIZE = (width - 4) / 3;
 
 const DEFAULT_AVATAR = require('../asset/avt.jpg');
 
-const ProfileScreen = ({ user, currentUser, isDarkMode = false, onLogout, onNavigateToHome, onEditProfile, onNavigateToSettings, onNavigateToSearch, onViewPost }) => {
+const ProfileScreen = ({ user, currentUser, isDarkMode = false, onLogout, onNavigateToHome, onNavigateToReels, onEditProfile, onNavigateToSettings, onNavigateToSearch, onViewPost }) => {
   const [stats, setStats] = useState({
     posts: 0,
     followers: 0,
@@ -320,20 +320,34 @@ const ProfileScreen = ({ user, currentUser, isDarkMode = false, onLogout, onNavi
           </View>
         ) : posts.length > 0 ? (
           <View style={styles.postsGrid}>
-            {posts.map((post) => (
-              <TouchableOpacity 
-                key={post.id} 
-                style={styles.postItem}
-                onPress={() => onViewPost && onViewPost(post)}
-                activeOpacity={0.8}
-              >
-                <Image
-                  source={{ uri: post.image }}
-                  style={styles.postImage}
-                  resizeMode="cover"
-                />
-              </TouchableOpacity>
-            ))}
+            {posts.map((post) => {
+              // Check if post is a reel/video
+              const isReel = post.type === 'reel' || (post.images && post.images.length > 0 && post.images[0]?.includes('data:video/'));
+              // Get first image (for regular posts) or first image from video (thumbnail)
+              const imageUri = post.images && post.images.length > 0 
+                ? post.images[0] 
+                : (post.image || '');
+              
+              return (
+                <TouchableOpacity 
+                  key={post.id} 
+                  style={styles.postItem}
+                  onPress={() => onViewPost && onViewPost(post)}
+                  activeOpacity={0.8}
+                >
+                  <Image
+                    source={{ uri: imageUri }}
+                    style={styles.postImage}
+                    resizeMode="cover"
+                  />
+                  {isReel && (
+                    <View style={styles.videoIndicator}>
+                      <Ionicons name="play" size={20} color="#fff" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         ) : (
           <View style={styles.emptyPostsContainer}>
@@ -350,6 +364,8 @@ const ProfileScreen = ({ user, currentUser, isDarkMode = false, onLogout, onNavi
         onTabChange={(tab) => {
           if (tab === 'home' && onNavigateToHome) {
             onNavigateToHome();
+          } else if (tab === 'reels' && onNavigateToReels) {
+            onNavigateToReels();
           } else if (tab === 'search' && onNavigateToSearch) {
             onNavigateToSearch();
           }
@@ -583,6 +599,14 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: '#f0f0f0',
+  },
+  videoIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 12,
+    padding: 4,
   },
   postsLoadingContainer: {
     paddingVertical: 40,

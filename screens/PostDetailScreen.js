@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -12,11 +12,13 @@ import {
   Dimensions,
   Alert,
 } from 'react-native';
+import { Video } from 'expo-av';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { postService } from '../services/postService';
 import { followService } from '../services/followService';
 import { handleApiError } from '../utils/errorHandler';
+import { alertSuccess, alertInfo } from '../utils/alert';
 import PostMenuModal from '../components/PostMenuModal';
 import CommentModal from '../components/CommentModal';
 
@@ -24,7 +26,14 @@ const { width } = Dimensions.get('window');
 const DEFAULT_AVATAR = require('../asset/avt.jpg');
 
 const PostDetailScreen = ({ post, currentUser, isDarkMode = false, onClose, onViewProfile, onUpdate, onEditPost }) => {
-  const [postData, setPostData] = useState(post);
+  // Ensure post has images array
+  const initialPost = {
+    ...post,
+    images: post.images && post.images.length > 0 
+      ? post.images 
+      : (post.image ? [post.image] : [])
+  };
+  const [postData, setPostData] = useState(initialPost);
   const [liked, setLiked] = useState(post.isLiked || false);
   const [likesCount, setLikesCount] = useState(post.likes || 0);
   const [commentText, setCommentText] = useState('');
@@ -35,6 +44,11 @@ const PostDetailScreen = ({ post, currentUser, isDarkMode = false, onClose, onVi
   const images = postData.images && postData.images.length > 0 
     ? postData.images 
     : (postData.image ? [postData.image] : []);
+
+  // Check if post is a reel (video)
+  const isReel = useMemo(() => {
+    return postData.type === 'reel' || (images.length > 0 && images[0]?.includes('data:video/'));
+  }, [postData.type, images]);
   const [commenting, setCommenting] = useState(false);
   const [commentsList, setCommentsList] = useState(post.commentsList || []);
   const [commentsCount, setCommentsCount] = useState(post.comments || 0);
@@ -54,7 +68,26 @@ const PostDetailScreen = ({ post, currentUser, isDarkMode = false, onClose, onVi
     if (!isOwnPost && post.userId) {
       checkFollowStatus();
     }
-  }, [post.userId, isOwnPost]);
+    // Load full post data when component mounts to ensure we have all images
+    const loadFullPost = async () => {
+      try {
+        const response = await postService.getPostById(post.id);
+        if (response.success && response.post) {
+          const fullPost = {
+            ...response.post,
+            images: response.post.images && response.post.images.length > 0 
+              ? response.post.images 
+              : (response.post.image ? [response.post.image] : [])
+          };
+          setPostData(fullPost);
+        }
+      } catch (error) {
+        // Silent fail, use post prop data
+        console.error('Load full post error:', error);
+      }
+    };
+    loadFullPost();
+  }, [post.id, post.userId, isOwnPost]);
 
   const checkFollowStatus = async () => {
     if (!post.userId) return;
@@ -124,7 +157,14 @@ const PostDetailScreen = ({ post, currentUser, isDarkMode = false, onClose, onVi
     try {
       const response = await postService.getPostById(post.id);
       if (response.success && response.post) {
-        setPostData(response.post);
+        // Always use images from server response, it should have all images
+        const updatedPost = {
+          ...response.post,
+          images: response.post.images && response.post.images.length > 0 
+            ? response.post.images 
+            : (response.post.image ? [response.post.image] : [])
+        };
+        setPostData(updatedPost);
         setCommentsList(response.post.commentsList || []);
         setCommentsCount(response.post.comments || 0);
         setShowAllComments(true);
@@ -272,14 +312,31 @@ const PostDetailScreen = ({ post, currentUser, isDarkMode = false, onClose, onVi
             }}
             scrollEnabled={images.length > 1}
           >
-            {images.map((imageUri, index) => (
-              <Image
-                key={index}
-                source={{ uri: imageUri }}
-                style={styles.postImage}
-                resizeMode="contain"
-              />
-            ))}
+            {images.map((imageUri, index) => {
+              const isVideo = isReel && (imageUri.includes('data:video/') || imageUri.includes('.mp4') || imageUri.includes('.mov'));
+              
+              return (
+                isVideo ? (
+                  <Video
+                    key={index}
+                    source={{ uri: imageUri }}
+                    style={styles.postImage}
+                    resizeMode="contain"
+                    shouldPlay={true}
+                    isLooping
+                    isMuted={false}
+                    useNativeControls={true}
+                  />
+                ) : (
+                  <Image
+                    key={index}
+                    source={{ uri: imageUri }}
+                    style={styles.postImage}
+                    resizeMode="contain"
+                  />
+                )
+              );
+            })}
           </ScrollView>
           
           {/* Image Indicator - Text (Top Right) */}

@@ -2,36 +2,11 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const Post = require('../models/Post');
-const jwt = require('jsonwebtoken');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-
-// Middleware to verify token
-const verifyToken = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1] || req.headers.authorization;
-
-  if (!token) {
-    return res.status(401).json({
-      success: false,
-      message: 'Không có token xác thực'
-    });
-  }
-
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.userId = decoded.userId;
-    req.username = decoded.username;
-    next();
-  } catch (error) {
-    return res.status(401).json({
-      success: false,
-      message: 'Token không hợp lệ'
-    });
-  }
-};
+const { verifyToken } = require('../middleware/auth');
+const { searchLimiter } = require('../middleware/rateLimiter');
 
 // Search users
-router.get('/users', verifyToken, async (req, res) => {
+router.get('/users', searchLimiter, verifyToken, async (req, res) => {
   try {
     const { q } = req.query;
 
@@ -76,7 +51,7 @@ router.get('/users', verifyToken, async (req, res) => {
 });
 
 // Search posts
-router.get('/posts', verifyToken, async (req, res) => {
+router.get('/posts', searchLimiter, verifyToken, async (req, res) => {
   try {
     const { q } = req.query;
 

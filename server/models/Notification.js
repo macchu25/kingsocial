@@ -10,7 +10,7 @@ const notificationSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['follow', 'like', 'comment']
+    enum: ['follow', 'like', 'comment', 'mention']
   },
   fromUserId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -30,6 +30,10 @@ const notificationSchema = new mongoose.Schema({
     ref: 'Post',
     default: null
   },
+  commentText: {
+    type: String,
+    default: ''
+  },
   read: {
     type: Boolean,
     default: false
@@ -42,6 +46,7 @@ const notificationSchema = new mongoose.Schema({
 notificationSchema.index({ userId: 1, read: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Notification', notificationSchema);
+
 
 
 

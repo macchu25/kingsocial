@@ -1,6 +1,7 @@
 import { alertError } from './alert';
+import { storage } from './storage';
 
-export const handleApiError = (error) => {
+export const handleApiError = async (error) => {
   console.error('API Error:', error);
   console.error('Error details:', {
     message: error.message,
@@ -16,7 +17,15 @@ export const handleApiError = (error) => {
     if (error.response.status === 404) {
       message = 'Không tìm thấy API endpoint. Vui lòng kiểm tra:\n- Backend có đang chạy không?\n- Route có đúng không?';
     } else if (error.response.status === 401) {
+      // Token không hợp lệ hoặc đã hết hạn - tự động đăng xuất
       message = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+      try {
+        // Xóa token và user data
+        await storage.clearAll();
+        console.log('✅ Đã xóa token và user data do lỗi 401');
+      } catch (clearError) {
+        console.error('Error clearing storage:', clearError);
+      }
     } else if (error.response.status === 413) {
       message = 'Kích thước ảnh quá lớn. Vui lòng:\n- Chọn ít ảnh hơn\n- Hoặc chọn ảnh có kích thước nhỏ hơn';
     } else {

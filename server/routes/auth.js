@@ -4,11 +4,17 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { sendOTPEmail } = require('../utils/emailService');
+const { authLimiter, passwordResetLimiter } = require('../middleware/rateLimiter');
+const { validateRegister, validateLogin } = require('../middleware/validator');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  console.error('⚠️ WARNING: JWT_SECRET is not set in environment variables!');
+}
 
 // Register
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, validateRegister, async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
@@ -140,7 +146,7 @@ router.post('/register', async (req, res) => {
 });
 
 // Login
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, validateLogin, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -200,7 +206,7 @@ router.post('/login', async (req, res) => {
 });
 
 // Forgot Password - Request OTP code
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', passwordResetLimiter, async (req, res) => {
   try {
     const { email } = req.body;
 
@@ -258,7 +264,7 @@ router.post('/forgot-password', async (req, res) => {
 });
 
 // Reset Password - Use OTP code to reset password
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', passwordResetLimiter, async (req, res) => {
   try {
     const { email, otpCode, newPassword } = req.body;
 

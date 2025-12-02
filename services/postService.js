@@ -15,24 +15,26 @@ const getBaseUrl = () => {
 };
 
 export const postService = {
-  // Lấy tất cả posts
-  getAllPosts: async () => {
+  // Lấy tất cả posts (có thể filter theo type: 'post' hoặc 'reel')
+  getAllPosts: async (type = null) => {
     const headers = await getAuthHeaders();
     const baseUrl = getBaseUrl();
+    const params = type ? { type } : {};
     const response = await axios.get(`${baseUrl}/api/posts`, {
       headers,
+      params,
     });
     return response.data;
   },
 
   // Tạo post mới
-  createPost: async (images, caption) => {
+  createPost: async (images, caption, type = 'post') => {
     const headers = await getAuthHeaders();
     const baseUrl = getBaseUrl();
     // Support both single image (backward compatibility) and multiple images
     const payload = Array.isArray(images) 
-      ? { images, caption }
-      : { image: images, caption };
+      ? { images, caption, type }
+      : { image: images, caption, type };
     const response = await axios.post(
       `${baseUrl}/api/posts/create`,
       payload,

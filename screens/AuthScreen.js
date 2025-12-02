@@ -18,7 +18,7 @@ import { authService } from '../services/authService';
 import { storage } from '../utils/storage';
 import { validateForm } from '../utils/validation';
 import { handleApiError } from '../utils/errorHandler';
-import { alertSuccess } from '../utils/alert';
+import { alertSuccess, alertError } from '../utils/alert';
 
 const { height } = Dimensions.get('window');
 

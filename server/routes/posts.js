@@ -4,38 +4,20 @@ const mongoose = require('mongoose');
 const Post = require('../models/Post');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
-const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-
-// Middleware to verify token
-const verifyToken = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1] || req.headers.authorization;
-
-  if (!token) {
-    return res.status(401).json({
-      success: false,
-      message: 'Không có token xác thực'
-    });
-  }
-
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.userId = decoded.userId;
-    req.username = decoded.username;
-    next();
-  } catch (error) {
-    return res.status(401).json({
-      success: false,
-      message: 'Token không hợp lệ'
-    });
-  }
-};
+const { verifyToken } = require('../middleware/auth');
+const { validatePost, validateComment } = require('../middleware/validator');
 
 // Get all posts
 router.get('/', verifyToken, async (req, res) => {
   try {
-    const posts = await Post.find()
+    const { type } = req.query; // Optional filter by type (post/reel)
+    const query = {};
+    if (type && (type === 'post' || type === 'reel')) {
+      query.type = type;
+    }
+    
+    const posts = await Post.find(query)
       .sort({ createdAt: -1 })
       .populate('userId', 'username name avatar')
       .lean();
@@ -63,6 +45,7 @@ router.get('/', verifyToken, async (req, res) => {
         image: images[0] || post.image || '',
         images: images,
         caption: post.caption || '',
+        type: post.type || 'post',
         likes: post.likes?.length || 0,
         isLiked: post.likes?.some(like => like.toString() === req.userId) || false,
         comments: post.comments?.length || 0,
@@ -103,9 +86,9 @@ router.get('/', verifyToken, async (req, res) => {
 });
 
 // Create new post
-router.post('/create', verifyToken, async (req, res) => {
+router.post('/create', verifyToken, validatePost, async (req, res) => {
   try {
-    const { image, images, caption } = req.body;
+    const { image, images, caption, type } = req.body;
 
     // Support both single image (backward compatibility) and multiple images
     let imagesArray = [];
@@ -138,6 +121,9 @@ router.post('/create', verifyToken, async (req, res) => {
       });
     }
 
+    // Determine type: if type is provided and valid, use it; otherwise default to 'post'
+    const postType = (type === 'reel' || type === 'post') ? type : 'post';
+
     const post = new Post({
       userId: req.userId,
       username: user.username,
@@ -145,6 +131,7 @@ router.post('/create', verifyToken, async (req, res) => {
       image: imagesArray[0], // Keep for backward compatibility
       images: imagesArray,
       caption: caption || '',
+      type: postType,
       likes: [],
       comments: []
     });
@@ -162,6 +149,7 @@ router.post('/create', verifyToken, async (req, res) => {
         image: post.images[0] || post.image,
         images: post.images,
         caption: post.caption,
+        type: post.type || 'post',
         likes: 0,
         isLiked: false,
         comments: 0,
@@ -244,7 +232,7 @@ router.post('/:postId/like', verifyToken, async (req, res) => {
 });
 
 // Add comment
-router.post('/:postId/comment', verifyToken, async (req, res) => {
+router.post('/:postId/comment', verifyToken, validateComment, async (req, res) => {
   try {
     const { text, image } = req.body;
 
@@ -278,12 +266,21 @@ router.post('/:postId/comment', verifyToken, async (req, res) => {
       });
     }
 
+    const commentText = text ? text.trim() : '';
     post.comments.push({
       userId: req.userId,
       username: user.username,
-      text: text ? text.trim() : '',
+      text: commentText,
       image: image || ''
     });
+
+    // Extract mentions from comment text (@username)
+    const mentionRegex = /@(\w+)/g;
+    const mentions = [];
+    let match;
+    while ((match = mentionRegex.exec(commentText)) !== null) {
+      mentions.push(match[1]);
+    }
 
     // Create notification for post owner (if not own post)
     if (post.userId.toString() !== req.userId) {
@@ -301,6 +298,45 @@ router.post('/:postId/comment', verifyToken, async (req, res) => {
       } catch (notifError) {
         console.error('❌ Create comment notification error:', notifError);
         // Don't fail the comment action if notification fails
+      }
+    }
+
+    // Create notifications for mentioned users
+    if (mentions.length > 0) {
+      try {
+        for (const mentionedUsername of mentions) {
+          // Skip if mentioning self
+          if (mentionedUsername.toLowerCase() === user.username.toLowerCase()) {
+            continue;
+          }
+          
+          // Find user by username
+          const mentionedUser = await User.findOne({ 
+            username: { $regex: new RegExp(`^${mentionedUsername}$`, 'i') } 
+          });
+          
+          if (mentionedUser && mentionedUser._id.toString() !== req.userId.toString()) {
+            // Don't create duplicate notification if post owner is mentioned
+            if (mentionedUser._id.toString() === post.userId.toString()) {
+              continue;
+            }
+            
+            const mentionNotification = new Notification({
+              userId: mentionedUser._id,
+              type: 'mention',
+              fromUserId: req.userId,
+              fromUsername: user.username,
+              fromUserAvatar: user.avatar || '',
+              postId: post._id,
+              commentText: commentText
+            });
+            await mentionNotification.save();
+            console.log(`✅ Mention notification created for ${mentionedUsername}:`, mentionNotification._id);
+          }
+        }
+      } catch (mentionError) {
+        console.error('❌ Create mention notification error:', mentionError);
+        // Don't fail the comment action if mention notification fails
       }
     }
 
@@ -471,18 +507,27 @@ router.get('/user/:userId', verifyToken, async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    const formattedPosts = posts.map(post => ({
-      id: post._id.toString(),
-      userId: post.userId.toString(),
-      username: post.username,
-      userAvatar: post.userAvatar || '',
-      image: post.image,
-      caption: post.caption || '',
-      likes: post.likes?.length || 0,
-      isLiked: post.likes?.some(like => like.toString() === req.userId) || false,
-      comments: post.comments?.length || 0,
-      createdAt: post.createdAt
-    }));
+    const formattedPosts = posts.map(post => {
+      // Get images array, fallback to single image for backward compatibility
+      const images = post.images && post.images.length > 0 
+        ? post.images 
+        : (post.image ? [post.image] : []);
+      
+      return {
+        id: post._id.toString(),
+        userId: post.userId.toString(),
+        username: post.username,
+        userAvatar: post.userAvatar || '',
+        image: images[0] || post.image || '', // Keep for backward compatibility
+        images: images, // Include images array
+        caption: post.caption || '',
+        type: post.type || 'post',
+        likes: post.likes?.length || 0,
+        isLiked: post.likes?.some(like => like.toString() === req.userId) || false,
+        comments: post.comments?.length || 0,
+        createdAt: post.createdAt
+      };
+    });
 
     res.json({
       success: true,
@@ -567,6 +612,7 @@ router.get('/:postId', verifyToken, async (req, res) => {
         image: images[0] || post.image || '',
         images: images,
         caption: post.caption || '',
+        type: post.type || 'post',
         likes: post.likes?.length || 0,
         isLiked: post.likes?.some(like => like.toString() === req.userId) || false,
         comments: post.comments?.length || 0,
@@ -635,6 +681,7 @@ router.put('/:postId', verifyToken, async (req, res) => {
         userAvatar: post.userAvatar,
         image: post.image,
         caption: post.caption,
+        type: post.type || 'post',
         likes: post.likes?.length || 0,
         comments: post.comments?.length || 0,
         createdAt: post.createdAt

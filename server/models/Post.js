@@ -52,6 +52,11 @@ const postSchema = new mongoose.Schema({
     maxlength: 2200,
     default: ''
   },
+  type: {
+    type: String,
+    enum: ['post', 'reel'],
+    default: 'post'
+  },
   likes: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'

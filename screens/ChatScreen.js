@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -73,11 +73,12 @@ const ChatScreen = ({
       })();
     }
 
-    // Start polling for new messages every 3 seconds (only for non-AI chat)
+    // Start polling for new messages every 5 seconds (only for non-AI chat)
+    // Optimized: Increased from 3s to 5s to reduce server load
     if (!isAIChat) {
       pollingIntervalRef.current = setInterval(() => {
         checkNewMessages();
-      }, 3000);
+      }, 5000);
     }
 
     return () => {

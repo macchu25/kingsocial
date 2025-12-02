@@ -29,6 +29,7 @@ const CreatePostScreen = ({ user, isDarkMode = false, onPostCreated, onCancel, o
   const [selectedImages, setSelectedImages] = useState([]);
   const [imagesBase64, setImagesBase64] = useState([]);
   const [caption, setCaption] = useState('');
+  const [isVideo, setIsVideo] = useState(false);
 
   useEffect(() => {
     // Request permission for image picker
@@ -49,19 +50,20 @@ const CreatePostScreen = ({ user, isDarkMode = false, onPostCreated, onCancel, o
   const handlePickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaTypeOptions.All, // Allow both images and videos
         allowsEditing: false,
         allowsMultipleSelection: true,
         quality: 0.4, // Low quality to reduce file size significantly
         exif: false, // Remove EXIF data to reduce size
+        videoMaxDuration: 60, // Max 60 seconds for videos
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        await processImages(result.assets);
+        await processMedia(result.assets);
       }
     } catch (error) {
-      console.error('Error picking images:', error);
-      alertError('Lỗi', 'Không thể chọn ảnh. Vui lòng thử lại.');
+      console.error('Error picking media:', error);
+      alertError('Lỗi', 'Không thể chọn ảnh/video. Vui lòng thử lại.');
       setImageLoading(false);
     }
   };
@@ -69,54 +71,101 @@ const CreatePostScreen = ({ user, isDarkMode = false, onPostCreated, onCancel, o
   const handleTakePhoto = async () => {
     try {
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaTypeOptions.All, // Allow both images and videos
         allowsEditing: false,
         quality: 0.4,
         exif: false,
+        videoMaxDuration: 60, // Max 60 seconds for videos
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        await processImages(result.assets);
+        await processMedia(result.assets);
       }
     } catch (error) {
-      console.error('Error taking photo:', error);
-      alertError('Lỗi', 'Không thể chụp ảnh. Vui lòng thử lại.');
+      console.error('Error taking photo/video:', error);
+      alertError('Lỗi', 'Không thể chụp ảnh/quay video. Vui lòng thử lại.');
       setImageLoading(false);
     }
   };
 
-  const processImages = async (assets) => {
-    // Limit to 5 images max to avoid payload too large
+  const processMedia = async (assets) => {
+    // Limit to 1 video or 5 images max to avoid payload too large
     const maxImages = 5;
-    const assetsToProcess = assets.slice(0, maxImages);
+    const maxVideos = 1;
     
-    if (assets.length > maxImages) {
-      alertWarning('Thông báo', `Chỉ có thể chọn tối đa ${maxImages} ảnh. Đã chọn ${maxImages} ảnh đầu tiên.`);
-    }
+    // Check if any asset is a video
+    const hasVideo = assets.some(asset => asset.type === 'video');
     
-    setImageLoading(true);
-    try {
-      const newImages = [];
-      const newImagesBase64 = [];
+      if (hasVideo) {
+      // If video, only allow 1 video
+      const videoAssets = assets.filter(asset => asset.type === 'video').slice(0, maxVideos);
+      if (videoAssets.length === 0) {
+        alertError('Lỗi', 'Vui lòng chọn video hợp lệ.');
+        return;
+      }
+      if (assets.length > 1) {
+        alertWarning('Thông báo', 'Chỉ có thể chọn 1 video. Đã chọn video đầu tiên.');
+      }
+      const assetsToProcess = videoAssets;
       
-      for (const asset of assetsToProcess) {
-        newImages.push(asset.uri);
+      setImageLoading(true);
+      try {
+        const newImages = [];
+        const newImagesBase64 = [];
         
-        // Convert image to base64
-        const base64 = await FileSystem.readAsStringAsync(asset.uri, {
-          encoding: 'base64',
-        });
-        const imageUri = `data:image/jpeg;base64,${base64}`;
-        newImagesBase64.push(imageUri);
+        for (const asset of assetsToProcess) {
+          newImages.push(asset.uri);
+          
+          // Convert video to base64
+          const base64 = await FileSystem.readAsStringAsync(asset.uri, {
+            encoding: 'base64',
+          });
+          const videoUri = `data:video/mp4;base64,${base64}`;
+          newImagesBase64.push(videoUri);
+        }
+        
+        setSelectedImages(newImages);
+        setImagesBase64(newImagesBase64);
+        setIsVideo(true); // Mark as video/reel
+      } catch (error) {
+        console.error('Error converting video:', error);
+        alertError('Lỗi', 'Không thể xử lý video. Vui lòng thử lại.');
+      } finally {
+        setImageLoading(false);
+      }
+    } else {
+      // If images, allow up to 5
+      const assetsToProcess = assets.slice(0, maxImages);
+      
+      if (assets.length > maxImages) {
+        alertWarning('Thông báo', `Chỉ có thể chọn tối đa ${maxImages} ảnh. Đã chọn ${maxImages} ảnh đầu tiên.`);
       }
       
-      setSelectedImages(newImages);
-      setImagesBase64(newImagesBase64);
-    } catch (error) {
-      console.error('Error converting images:', error);
-      alertError('Lỗi', 'Không thể xử lý ảnh. Vui lòng thử lại.');
-    } finally {
-      setImageLoading(false);
+      setImageLoading(true);
+      try {
+        const newImages = [];
+        const newImagesBase64 = [];
+        
+        for (const asset of assetsToProcess) {
+          newImages.push(asset.uri);
+          
+          // Convert image to base64
+          const base64 = await FileSystem.readAsStringAsync(asset.uri, {
+            encoding: 'base64',
+          });
+          const imageUri = `data:image/jpeg;base64,${base64}`;
+          newImagesBase64.push(imageUri);
+        }
+        
+        setSelectedImages(newImages);
+        setImagesBase64(newImagesBase64);
+        setIsVideo(false); // Mark as image/post
+      } catch (error) {
+        console.error('Error converting images:', error);
+        alertError('Lỗi', 'Không thể xử lý ảnh. Vui lòng thử lại.');
+      } finally {
+        setImageLoading(false);
+      }
     }
   };
 
@@ -134,10 +183,17 @@ const CreatePostScreen = ({ user, isDarkMode = false, onPostCreated, onCancel, o
     setLoading(true);
 
     try {
-      const response = await postService.createPost(imagesBase64, caption);
+      // Determine type: if video, use 'reel', otherwise 'post'
+      const postType = isVideo ? 'reel' : 'post';
+      const response = await postService.createPost(imagesBase64, caption, postType);
 
       if (response.success) {
         alertSuccess('Thành công', response.message);
+        // Reset state
+        setSelectedImages([]);
+        setImagesBase64([]);
+        setCaption('');
+        setIsVideo(false);
         onPostCreated();
       }
     } catch (error) {

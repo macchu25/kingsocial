@@ -1,15 +1,14 @@
-import React, { useState, useEffect, useRef, memo } from 'react';
+import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  ScrollView,
+  FlatList,
   Image,
   TouchableOpacity,
   StatusBar,
   RefreshControl,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,7 +20,7 @@ import { postService } from '../services/postService';
 import { handleApiError } from '../utils/errorHandler';
 import { alertInfo } from '../utils/alert';
 
-const HomeScreen = ({ user, isDarkMode = false, onLogout, onNavigateToProfile, onNavigateToCreatePost, onNavigateToMessages, onNavigateToSearch, onViewUserProfile, onCreateStory, onViewStory, onViewPost, onEditPost }) => {
+const HomeScreen = ({ user, isDarkMode = false, onLogout, onNavigateToProfile, onNavigateToCreatePost, onNavigateToMessages, onNavigateToSearch, onNavigateToReels, onViewUserProfile, onCreateStory, onViewStory, onViewPost, onEditPost }) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -30,11 +29,7 @@ const HomeScreen = ({ user, isDarkMode = false, onLogout, onNavigateToProfile, o
   const scrollViewRef = useRef(null);
   const postRefs = useRef({});
 
-  useEffect(() => {
-    loadPosts();
-  }, []);
-
-  const loadPosts = async () => {
+  const loadPosts = useCallback(async () => {
     try {
       const response = await postService.getAllPosts();
       if (response.success) {
@@ -46,21 +41,25 @@ const HomeScreen = ({ user, isDarkMode = false, onLogout, onNavigateToProfile, o
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
-  const onRefresh = () => {
+  useEffect(() => {
+    loadPosts();
+  }, [loadPosts]);
+
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadPosts();
     setStoriesRefreshTrigger(prev => prev + 1); // Trigger stories refresh
-  };
+  }, []);
 
-  const handlePostUpdate = () => {
+  const handlePostUpdate = useCallback(() => {
     loadPosts();
-  };
+  }, [loadPosts]);
 
-  const handleStoryCreated = () => {
+  const handleStoryCreated = useCallback(() => {
     // StoriesSection will auto-refresh on mount
-  };
+  }, []);
 
   return (
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
@@ -68,7 +67,7 @@ const HomeScreen = ({ user, isDarkMode = false, onLogout, onNavigateToProfile, o
       
       {/* Header */}
       <View style={[styles.header, isDarkMode && styles.headerDark]}>
-        <Text style={[styles.logo, isDarkMode && styles.logoDark]}>Instagram</Text>
+        <Image source={require('../asset/lghy.png')} style={styles.logo} resizeMode="contain" />
         <View style={styles.headerIcons}>
             <TouchableOpacity 
               style={styles.iconButton}
@@ -96,52 +95,47 @@ const HomeScreen = ({ user, isDarkMode = false, onLogout, onNavigateToProfile, o
           <ActivityIndicator size="large" color="#0095F6" />
         </View>
       ) : (
-        <ScrollView
+        <FlatList
           ref={scrollViewRef}
           style={styles.feed}
+          data={posts}
+          keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
-        >
-          {/* Stories Section */}
-          <StoriesSection
-            user={user}
-            onCreateStory={onCreateStory}
-            onViewStory={onViewStory}
-            refreshTrigger={storiesRefreshTrigger}
-            isDarkMode={isDarkMode}
-          />
-
-          {/* Posts Feed */}
-          {posts.length === 0 ? (
+          ListHeaderComponent={
+            <StoriesSection
+              user={user}
+              onCreateStory={onCreateStory}
+              onViewStory={onViewStory}
+              refreshTrigger={storiesRefreshTrigger}
+              isDarkMode={isDarkMode}
+            />
+          }
+          ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={[styles.emptyText, isDarkMode && styles.emptyTextDark]}>Chưa có bài viết nào</Text>
               <Text style={[styles.emptySubtext, isDarkMode && styles.emptySubtextDark]}>Hãy tạo bài viết đầu tiên của bạn!</Text>
             </View>
-          ) : (
-            posts.map((post, index) => (
-              <View
-                key={post.id}
-                ref={(ref) => {
-                  if (ref) {
-                    postRefs.current[post.id] = ref;
-                  }
-                }}
-              >
-                <PostItem
-                  post={post}
-                  currentUserId={user?.id}
-                  isDarkMode={isDarkMode}
-                  onUpdate={handlePostUpdate}
-                  onViewProfile={onViewUserProfile}
-                  onViewPost={onViewPost}
-                  onEditPost={onEditPost}
-                />
-              </View>
-            ))
+          }
+          renderItem={({ item: post }) => (
+            <PostItem
+              post={post}
+              currentUserId={user?.id}
+              isDarkMode={isDarkMode}
+              onUpdate={handlePostUpdate}
+              onViewProfile={onViewUserProfile}
+              onViewPost={onViewPost}
+              onEditPost={onEditPost}
+            />
           )}
-        </ScrollView>
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          updateCellsBatchingPeriod={50}
+          initialNumToRender={5}
+          windowSize={10}
+        />
       )}
 
       {/* Bottom Navigation */}
@@ -156,6 +150,11 @@ const HomeScreen = ({ user, isDarkMode = false, onLogout, onNavigateToProfile, o
             onNavigateToCreatePost();
           } else if (tab === 'search' && onNavigateToSearch) {
             onNavigateToSearch();
+          } else if (tab === 'reels') {
+            // Navigate to reels screen - handled by App.js
+            if (onNavigateToReels) {
+              onNavigateToReels();
+            }
           }
         }}
       />
@@ -245,7 +244,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 15,
+    paddingLeft: 10,
+    paddingRight: 15,
     paddingVertical: 10,
     borderBottomWidth: 0.5,
     borderBottomColor: '#dbdbdb',
@@ -254,12 +254,9 @@ const styles = StyleSheet.create({
     borderBottomColor: '#333',
   },
   logo: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  logoDark: {
-    color: '#fff',
+    height: 30,
+    width: 120,
+    marginLeft: 0,
   },
   headerIcons: {
     flexDirection: 'row',
