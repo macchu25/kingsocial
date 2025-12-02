@@ -17,6 +17,7 @@ import SearchScreen from './screens/SearchScreen';
 import ChangePasswordScreen from './screens/ChangePasswordScreen';
 import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 import CustomAlert from './components/CustomAlert';
+import ErrorBoundary from './components/ErrorBoundary';
 import { storage } from './utils/storage';
 
 export default function App() {
@@ -88,7 +89,7 @@ export default function App() {
   if (user) {
     if (currentScreen === 'createNote') {
       return (
-        <>
+        <ErrorBoundary>
           <CreateNoteScreen
           user={user}
           isDarkMode={isDarkMode}
@@ -102,12 +103,12 @@ export default function App() {
           onCancel={() => setCurrentScreen('messages')}
         />
         <CustomAlert isDarkMode={isDarkMode} />
-      </>
+        </ErrorBoundary>
       );
     }
     if (currentScreen === 'chat' && chatUser) {
       return (
-        <>
+        <ErrorBoundary>
           <ChatScreen
           chatUser={chatUser}
           currentUser={user}
@@ -118,7 +119,7 @@ export default function App() {
           }}
         />
         <CustomAlert isDarkMode={isDarkMode} />
-      </>
+        </ErrorBoundary>
       );
     }
     if (currentScreen === 'messages') {
@@ -395,13 +396,13 @@ export default function App() {
   }
 
   return (
-    <>
+    <ErrorBoundary>
       <AuthScreen
         onLoginSuccess={handleLoginSuccess}
         onRegisterSuccess={handleRegisterSuccess}
         onForgotPassword={() => setShowForgotPassword(true)}
       />
       <CustomAlert isDarkMode={isDarkMode} />
-    </>
+    </ErrorBoundary>
   );
 }

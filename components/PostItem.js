@@ -57,12 +57,12 @@ const PostItem = ({ post, currentUserId, isDarkMode = false, onUpdate, onViewPro
     setCommentsCount(post.comments || 0);
   }, [post.comments]);
 
-  // Check follow status when post changes
+  // Check follow status when post changes (memoized to avoid unnecessary calls)
   useEffect(() => {
     if (!isOwnPost && post.userId) {
       checkFollowStatus();
     }
-  }, [post.userId, isOwnPost]);
+  }, [post.userId, isOwnPost, checkFollowStatus]);
 
   const checkFollowStatus = useCallback(async () => {
     if (!post.userId) return;

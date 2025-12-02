@@ -131,10 +131,10 @@ const HomeScreen = ({ user, isDarkMode = false, onLogout, onNavigateToProfile, o
             />
           )}
           removeClippedSubviews={true}
-          maxToRenderPerBatch={10}
-          updateCellsBatchingPeriod={50}
-          initialNumToRender={5}
-          windowSize={10}
+          maxToRenderPerBatch={5} // Giảm batch size
+          updateCellsBatchingPeriod={100} // Tăng batch period
+          initialNumToRender={3} // Giảm initial render
+          windowSize={5} // Giảm window size
         />
       )}
 

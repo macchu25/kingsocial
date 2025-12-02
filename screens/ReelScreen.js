@@ -58,6 +58,18 @@ const ReelScreen = ({ user, isDarkMode = false, onNavigateToProfile, onNavigateT
 
   useEffect(() => {
     loadReels();
+    
+    // Cleanup on unmount
+    return () => {
+      // Pause all videos and cleanup refs
+      Object.keys(videoRefs.current).forEach((key) => {
+        if (videoRefs.current[key]) {
+          videoRefs.current[key].pauseAsync().catch(() => {});
+          videoRefs.current[key] = null;
+        }
+      });
+      videoRefs.current = {};
+    };
   }, [loadReels]);
 
   // Pause all videos when reels change or on mount
@@ -86,37 +98,55 @@ const ReelScreen = ({ user, isDarkMode = false, onNavigateToProfile, onNavigateT
   }, [loadReels]);
 
   const onViewableItemsChanged = useRef(({ viewableItems }) => {
-    if (viewableItems.length > 0) {
-      // Get the most visible item (first one in the list)
-      const visibleItem = viewableItems[0];
-      const index = visibleItem.index;
-      
-      if (index !== null && index !== currentIndex) {
-        // Pause ALL videos first
+    try {
+      if (viewableItems.length > 0) {
+        // Get the most visible item (first one in the list)
+        const visibleItem = viewableItems[0];
+        const index = visibleItem.index;
+        
+        if (index !== null && index !== currentIndex) {
+          // Pause ALL videos first
+          Object.keys(videoRefs.current).forEach((key) => {
+            try {
+              if (videoRefs.current[key]) {
+                videoRefs.current[key].pauseAsync().catch(() => {});
+              }
+            } catch (err) {
+              console.error('Error pausing video:', err);
+            }
+          });
+          
+          setCurrentIndex(index);
+          
+          // Play only the current video after a short delay
+          const currentReel = visibleItem.item;
+          if (currentReel && videoRefs.current[currentReel.id]) {
+            setTimeout(() => {
+              try {
+                videoRefs.current[currentReel.id]?.playAsync().catch((err) => {
+                  console.error('Error playing video:', err);
+                });
+              } catch (err) {
+                console.error('Error in play timeout:', err);
+              }
+            }, 150);
+          }
+        }
+      } else {
+        // If no items are visible, pause all videos
         Object.keys(videoRefs.current).forEach((key) => {
-          if (videoRefs.current[key]) {
-            videoRefs.current[key].pauseAsync().catch(() => {});
+          try {
+            if (videoRefs.current[key]) {
+              videoRefs.current[key].pauseAsync().catch(() => {});
+            }
+          } catch (err) {
+            console.error('Error pausing video:', err);
           }
         });
-        
-        setCurrentIndex(index);
-        
-        // Play only the current video after a short delay
-        const currentReel = visibleItem.item;
-        if (currentReel && videoRefs.current[currentReel.id]) {
-          setTimeout(() => {
-            videoRefs.current[currentReel.id]?.playAsync().catch(() => {});
-          }, 150);
-        }
+        setCurrentIndex(-1);
       }
-    } else {
-      // If no items are visible, pause all videos
-      Object.keys(videoRefs.current).forEach((key) => {
-        if (videoRefs.current[key]) {
-          videoRefs.current[key].pauseAsync().catch(() => {});
-        }
-      });
-      setCurrentIndex(-1);
+    } catch (error) {
+      console.error('Error in onViewableItemsChanged:', error);
     }
   }).current;
 
@@ -182,7 +212,7 @@ const ReelScreen = ({ user, isDarkMode = false, onNavigateToProfile, onNavigateT
     }
   };
 
-  const renderReel = ({ item: reel, index }) => {
+  const renderReel = useCallback(({ item: reel, index }) => {
     const isActive = index === currentIndex;
     const isLiked = likedReels[reel.id] || false;
     const following = isFollowing[reel.userId] || false;
@@ -234,17 +264,26 @@ const ReelScreen = ({ user, isDarkMode = false, onNavigateToProfile, onNavigateT
           >
             <Video
               ref={(ref) => {
-                if (ref) {
-                  videoRefs.current[reel.id] = ref;
-                  // If this is the active video, play it
-                  if (isActive) {
-                    setTimeout(() => {
-                      ref.playAsync().catch(() => {});
-                    }, 100);
+                try {
+                  if (ref) {
+                    videoRefs.current[reel.id] = ref;
+                    // If this is the active video, play it
+                    if (isActive) {
+                      setTimeout(() => {
+                        ref?.playAsync().catch((err) => {
+                          console.error('Error playing video:', err);
+                        });
+                      }, 100);
+                    } else {
+                      // Otherwise, ensure it's paused
+                      ref.pauseAsync().catch(() => {});
+                    }
                   } else {
-                    // Otherwise, ensure it's paused
-                    ref.pauseAsync().catch(() => {});
+                    // Cleanup ref if component unmounts
+                    delete videoRefs.current[reel.id];
                   }
+                } catch (error) {
+                  console.error('Error setting video ref:', error);
                 }
               }}
               source={{ uri: reel.images[0] }}
@@ -255,6 +294,9 @@ const ReelScreen = ({ user, isDarkMode = false, onNavigateToProfile, onNavigateT
               isMuted={false}
               volume={1.0}
               useNativeControls={false}
+              onError={(error) => {
+                console.error('Video playback error:', error);
+              }}
             />
           </TouchableOpacity>
         )}
@@ -349,7 +391,7 @@ const ReelScreen = ({ user, isDarkMode = false, onNavigateToProfile, onNavigateT
         </View>
       </View>
     );
-  };
+  }, [currentIndex, likedReels, isFollowing, user, commentModalVisible, isDarkMode, onViewUserProfile, handleLike, handleOpenComments, handleFollow, onViewPost]);
 
   if (loading) {
     return (
@@ -389,10 +431,11 @@ const ReelScreen = ({ user, isDarkMode = false, onNavigateToProfile, onNavigateT
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
-          removeClippedSubviews={false}
-          initialNumToRender={3}
-          maxToRenderPerBatch={3}
-          windowSize={5}
+          removeClippedSubviews={true} // Tối ưu memory
+          initialNumToRender={2} // Giảm số lượng render ban đầu
+          maxToRenderPerBatch={2} // Giảm batch size
+          windowSize={3} // Giảm window size
+          updateCellsBatchingPeriod={50} // Batch updates
           getItemLayout={(data, index) => ({
             length: height,
             offset: height * index,
