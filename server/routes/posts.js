@@ -292,7 +292,7 @@ router.post('/:postId/like', verifyToken, async (req, res) => {
 });
 
 // Add comment
-router.post('/:postId/comment', verifyToken, validateComment, async (req, res) => {
+router.post('/:postId/comment', verifyToken, async (req, res) => {
   try {
     const { text, image, isSensitive, sensitiveReason } = req.body;
 

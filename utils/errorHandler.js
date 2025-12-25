@@ -29,7 +29,21 @@ export const handleApiError = async (error) => {
     } else if (error.response.status === 413) {
       message = 'Kích thước ảnh quá lớn. Vui lòng:\n- Chọn ít ảnh hơn\n- Hoặc chọn ảnh có kích thước nhỏ hơn';
     } else {
-      message = error.response.data?.message || `Lỗi ${error.response.status}: ${error.response.statusText || 'Unknown error'}`;
+      // Check for validation errors
+      if (error.response.data?.errors && Array.isArray(error.response.data.errors)) {
+        const errorMessages = error.response.data.errors.map(err => {
+          if (typeof err === 'object' && err.msg) {
+            return err.msg;
+          }
+          return typeof err === 'string' ? err : JSON.stringify(err);
+        });
+        message = error.response.data.message || 'Dữ liệu không hợp lệ';
+        if (errorMessages.length > 0) {
+          message += '\n' + errorMessages.join('\n');
+        }
+      } else {
+        message = error.response.data?.message || `Lỗi ${error.response.status}: ${error.response.statusText || 'Unknown error'}`;
+      }
     }
   } else if (error.request) {
     // Request was made but no response received

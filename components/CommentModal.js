@@ -277,13 +277,15 @@ const CommentModal = ({
 
   const proceedWithComment = async (commentToAdd, isSensitive = false, sensitiveReason = null) => {
     setCommenting(true);
+    // Save imageBase64 before clearing it
+    const imageToSend = imageBase64;
     const tempComment = {
       id: `temp-${Date.now()}`,
       userId: currentUser?.id,
       username: currentUser?.username || 'Bạn',
       avatar: currentUser?.avatar || '',
       text: commentToAdd,
-      image: selectedImage ? imageBase64 : null,
+      image: selectedImage ? imageToSend : null,
       isSensitive: isSensitive,
       sensitiveReason: sensitiveReason,
       createdAt: new Date().toISOString(),
@@ -295,7 +297,9 @@ const CommentModal = ({
     setImageBase64(null);
 
     try {
-      const response = await postService.addComment(post.id, commentToAdd, imageBase64, isSensitive, sensitiveReason);
+      // Send empty string as undefined if no text to avoid validation issues
+      const textToSend = commentToAdd && commentToAdd.trim() !== '' ? commentToAdd : undefined;
+      const response = await postService.addComment(post.id, textToSend, imageToSend, isSensitive, sensitiveReason);
       if (response.success) {
         // Replace temp comment with real comment from server (ensure isSensitive is preserved)
         const newComment = {

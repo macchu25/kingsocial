@@ -89,12 +89,26 @@ const validatePost = [
   validate
 ];
 
-// Comment validation
+// Comment validation - only validate if values are provided and not empty
 const validateComment = [
   body('text')
+    .if(body('text').exists().notEmpty())
     .trim()
-    .isLength({ min: 1, max: 500 })
-    .withMessage('Comment phải có từ 1-500 ký tự'),
+    .isLength({ max: 500 })
+    .withMessage('Comment không được quá 500 ký tự'),
+  body('image')
+    .if(body('image').exists().notEmpty())
+    .custom((value) => {
+      // Validate format if image is provided
+      if (typeof value === 'string' && value.trim() !== '') {
+        const isUrl = /^https?:\/\//.test(value);
+        const isDataUri = /^data:(image|video)\/[^;]+;base64,/.test(value);
+        if (!isUrl && !isDataUri) {
+          throw new Error('Image phải là URL hoặc data URI hợp lệ');
+        }
+      }
+      return true;
+    }),
   validate
 ];
 

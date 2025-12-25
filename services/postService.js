@@ -59,9 +59,16 @@ export const postService = {
       addComment: async (postId, text, image = null, isSensitive = false, sensitiveReason = null) => {
         const headers = await getAuthHeaders();
         const baseUrl = getBaseUrl();
+        // Only include text if it has a value
+        const payload = {
+          ...(text !== undefined && text !== null && text.trim() !== '' ? { text: text.trim() } : {}),
+          ...(image !== undefined && image !== null && image !== '' ? { image } : {}),
+          isSensitive,
+          ...(sensitiveReason ? { sensitiveReason } : {})
+        };
         const response = await axios.post(
           `${baseUrl}/api/posts/${postId}/comment`,
-          { text, image, isSensitive, sensitiveReason },
+          payload,
           { headers }
         );
         return response.data;
