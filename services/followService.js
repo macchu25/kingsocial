@@ -49,12 +49,34 @@ export const followService = {
     return response.data;
   },
 
-  // Get following list
+  // Get following list (current user)
   getFollowingList: async () => {
     const headers = await getAuthHeaders();
     const baseUrl = getBaseUrl();
     const response = await axios.get(
       `${baseUrl}/api/follow/following/list`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  // Get followers list for a specific user
+  getFollowersList: async (userId) => {
+    const headers = await getAuthHeaders();
+    const baseUrl = getBaseUrl();
+    const response = await axios.get(
+      `${baseUrl}/api/follow/${userId}/followers`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  // Get following list for a specific user
+  getFollowingListForUser: async (userId) => {
+    const headers = await getAuthHeaders();
+    const baseUrl = getBaseUrl();
+    const response = await axios.get(
+      `${baseUrl}/api/follow/${userId}/following`,
       { headers }
     );
     return response.data;

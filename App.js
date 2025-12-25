@@ -275,6 +275,7 @@ export default function App() {
               setViewingPost(post);
               setCurrentScreen("postDetail");
             }}
+            onViewProfile={handleViewUserProfile}
           />
           <CustomAlert isDarkMode={isDarkMode} />
         </>
@@ -298,6 +299,7 @@ export default function App() {
               setViewingPost(post);
               setCurrentScreen("postDetail");
             }}
+            onViewProfile={handleViewUserProfile}
           />
           <CustomAlert isDarkMode={isDarkMode} />
         </>

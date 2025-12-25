@@ -26,6 +26,7 @@ const SwipeableCommentRow = ({
   const startX = useRef(0);
   const currentX = useRef(0);
   const [isSwiping, setIsSwiping] = useState(false);
+  const isHorizontalSwipe = useRef(false);
 
   if (!canDelete && !canEdit) {
     // No swipe actions available, just render children
@@ -35,16 +36,51 @@ const SwipeableCommentRow = ({
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
+      // Không capture ngay từ đầu - để ScrollView có cơ hội xử lý vertical scroll
       onStartShouldSetPanResponderCapture: () => false,
       onMoveShouldSetPanResponder: (evt, gestureState) => {
-        // Only respond to horizontal swipes
+        // Kiểm tra xem có phải horizontal swipe không
         const { dx, dy } = gestureState;
-        return Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10;
+        // Threshold thấp hơn để phát hiện sớm hơn trên mobile
+        const isHorizontal = Math.abs(dx) > Math.abs(dy) * 1.1;
+        const hasHorizontalMovement = Math.abs(dx) > 2;
+        
+        // Update ref để track direction
+        isHorizontalSwipe.current = isHorizontal && hasHorizontalMovement;
+        
+        // Nếu là vertical scroll rõ ràng, không bắt - để ScrollView xử lý
+        if (!isHorizontal && Math.abs(dy) > 8) {
+          isHorizontalSwipe.current = false;
+          return false;
+        }
+        
+        // Nếu là horizontal swipe, bắt gesture
+        return isHorizontal && hasHorizontalMovement;
       },
       onMoveShouldSetPanResponderCapture: (evt, gestureState) => {
-        // Capture horizontal swipes before ScrollView
+        // Capture horizontal swipes TRƯỚC ScrollView trên mobile
+        // Đây là key để hoạt động trên điện thoại
         const { dx, dy } = gestureState;
-        return Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10;
+        // Threshold thấp hơn để phát hiện sớm hơn
+        const isHorizontal = Math.abs(dx) > Math.abs(dy) * 1.1;
+        const hasHorizontalMovement = Math.abs(dx) > 2;
+        
+        // Update ref để track direction
+        isHorizontalSwipe.current = isHorizontal && hasHorizontalMovement;
+        
+        // Nếu là vertical scroll rõ ràng, không bắt - để ScrollView xử lý
+        if (!isHorizontal && Math.abs(dy) > 8) {
+          isHorizontalSwipe.current = false;
+          return false;
+        }
+        
+        // Nếu là horizontal swipe, BẮT gesture trước ScrollView
+        return isHorizontal && hasHorizontalMovement;
+      },
+      // Cho phép ScrollView lấy lại gesture nếu không phải horizontal swipe
+      onPanResponderTerminationRequest: () => {
+        // Nếu không phải horizontal swipe, cho phép terminate để ScrollView xử lý
+        return !isHorizontalSwipe.current;
       },
       onPanResponderGrant: (evt) => {
         startX.current = evt.nativeEvent.pageX;
@@ -52,10 +88,21 @@ const SwipeableCommentRow = ({
         translateX.setOffset(currentX.current);
         translateX.setValue(0);
         setIsSwiping(true);
+        isHorizontalSwipe.current = false; // Reset khi bắt đầu gesture mới
       },
       onPanResponderMove: (evt, gestureState) => {
-        const { dx } = gestureState;
+        const { dx, dy } = gestureState;
         const maxSwipe = canEdit && canDelete ? ACTION_WIDTH * 2 : ACTION_WIDTH;
+        
+        // Kiểm tra lại direction trong move
+        const isHorizontal = Math.abs(dx) > Math.abs(dy) * 1.2;
+        isHorizontalSwipe.current = isHorizontal && Math.abs(dx) > 3;
+        
+        // Nếu là vertical scroll nhiều hơn horizontal, không update position
+        if (!isHorizontal && Math.abs(dy) > 15) {
+          // Không làm gì, để ScrollView xử lý
+          return;
+        }
         
         // Calculate new position based on current offset and gesture
         const newX = currentX.current + dx;
@@ -66,16 +113,15 @@ const SwipeableCommentRow = ({
       },
       onPanResponderRelease: (evt, gestureState) => {
         translateX.flattenOffset();
-        const { dx } = gestureState;
+        const { dx, vx } = gestureState;
         const threshold = canEdit && canDelete ? ACTION_WIDTH * 2 : ACTION_WIDTH;
         const finalX = translateX._value;
-        const startPosition = currentX.current;
         
         setIsSwiping(false);
         
-        // Determine action based on swipe direction and distance
+        // Determine action based on swipe direction, distance, and velocity
         // If swiping right (positive dx), always close regardless of distance
-        if (dx > 5) {
+        if (dx > 10 || (dx > 0 && vx > 0.5)) {
           // Swiping right (closing) - always close
           Animated.spring(translateX, {
             toValue: 0,
@@ -83,14 +129,25 @@ const SwipeableCommentRow = ({
             tension: 50,
             friction: 7,
           }).start();
-        } else if (dx < -5 && finalX < -SWIPE_THRESHOLD) {
-          // Swiping left and reached threshold - open it
-          Animated.spring(translateX, {
-            toValue: -threshold,
-            useNativeDriver: true,
-            tension: 50,
-            friction: 7,
-          }).start();
+        } else if (dx < -10 || (dx < 0 && vx < -0.5)) {
+          // Swiping left - check if we should open
+          if (Math.abs(finalX) > SWIPE_THRESHOLD || Math.abs(dx) > SWIPE_THRESHOLD) {
+            // Opened enough - keep open
+            Animated.spring(translateX, {
+              toValue: -threshold,
+              useNativeDriver: true,
+              tension: 50,
+              friction: 7,
+            }).start();
+          } else {
+            // Not enough movement - close it
+            Animated.spring(translateX, {
+              toValue: 0,
+              useNativeDriver: true,
+              tension: 50,
+              friction: 7,
+            }).start();
+          }
         } else if (finalX < -SWIPE_THRESHOLD) {
           // Already open (or opened enough) - keep open
           Animated.spring(translateX, {
@@ -100,7 +157,7 @@ const SwipeableCommentRow = ({
             friction: 7,
           }).start();
         } else {
-          // Not enough movement or swiping right - close it
+          // Not enough movement - close it
           Animated.spring(translateX, {
             toValue: 0,
             useNativeDriver: true,
@@ -129,11 +186,8 @@ const SwipeableCommentRow = ({
 
   const handleDelete = () => {
     closeSwipe();
-    // Delay nhỏ để đảm bảo swipe animation hoàn thành trước khi hiển thị alert
-    // Điều này giúp tránh xung đột với các component khác trên mobile
-    setTimeout(() => {
-      if (onDelete) onDelete();
-    }, 200);
+    // Gọi onDelete trực tiếp sau khi đóng swipe
+    if (onDelete) onDelete();
   };
 
   const handleEdit = () => {

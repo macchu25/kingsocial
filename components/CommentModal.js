@@ -144,25 +144,16 @@ const CommentModal = ({
   };
 
   const handleDeleteComment = async (commentId) => {
-    // SwipeableCommentRow đã tự đóng swipe trước khi gọi onDelete
-    // Chỉ cần delay nhỏ để đảm bảo animation hoàn thành và CustomAlert hiển thị đúng trên mobile
-    setTimeout(() => {
-      alertDelete(
-        'Xóa bình luận',
-        'Bạn có chắc chắn muốn xóa bình luận này?',
-        async () => {
-          try {
-            const response = await postService.deleteComment(post.id, commentId);
-            if (response.success) {
-              setComments(comments.filter(c => c.id !== commentId));
-              setCommentsCount(response.commentsCount);
-            }
-          } catch (error) {
-            handleApiError(error);
-          }
-        }
-      );
-    }, 300);
+    // Xóa comment trực tiếp mà không cần hộp thoại xác nhận
+    try {
+      const response = await postService.deleteComment(post.id, commentId);
+      if (response.success) {
+        setComments(comments.filter(c => c.id !== commentId));
+        setCommentsCount(response.commentsCount);
+      }
+    } catch (error) {
+      handleApiError(error);
+    }
   };
 
   const handleEditComment = (comment) => {
@@ -373,6 +364,7 @@ const CommentModal = ({
       transparent
       animationType="slide"
       onRequestClose={onClose}
+      presentationStyle="pageSheet"
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import BottomNavigation from '../components/BottomNavigation';
+import FollowersFollowingModal from '../components/FollowersFollowingModal';
 import { storage } from '../utils/storage';
 import { followService } from '../services/followService';
 import { userService } from '../services/userService';
@@ -26,7 +27,7 @@ const POST_SIZE = (width - 4) / 3;
 
 const DEFAULT_AVATAR = require('../asset/avt.jpg');
 
-const ProfileScreen = ({ user, currentUser, isDarkMode = false, onLogout, onNavigateToHome, onNavigateToReels, onEditProfile, onNavigateToSettings, onNavigateToSearch, onViewPost }) => {
+const ProfileScreen = ({ user, currentUser, isDarkMode = false, onLogout, onNavigateToHome, onNavigateToReels, onEditProfile, onNavigateToSettings, onNavigateToSearch, onViewPost, onViewProfile }) => {
   const [stats, setStats] = useState({
     posts: 0,
     followers: 0,
@@ -37,6 +38,8 @@ const ProfileScreen = ({ user, currentUser, isDarkMode = false, onLogout, onNavi
   const [followingLoading, setFollowingLoading] = useState(false);
   const [posts, setPosts] = useState([]);
   const [postsLoading, setPostsLoading] = useState(false);
+  const [showFollowersModal, setShowFollowersModal] = useState(false);
+  const [showFollowingModal, setShowFollowingModal] = useState(false);
 
   const isOwnProfile = currentUser?.id === user?.id;
 
@@ -165,6 +168,17 @@ const ProfileScreen = ({ user, currentUser, isDarkMode = false, onLogout, onNavi
     }
   };
 
+  const handleViewProfile = (userId, username, avatar) => {
+    if (onViewProfile) {
+      onViewProfile(userId, username, avatar);
+    }
+  };
+
+  const handleFollowChange = () => {
+    // Reload stats when follow status changes
+    loadProfileData();
+  };
+
   const handleLogout = async () => {
     alertDelete(
       'Đăng xuất',
@@ -235,18 +249,26 @@ const ProfileScreen = ({ user, currentUser, isDarkMode = false, onLogout, onNavi
 
           {/* Stats */}
           <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
+            <TouchableOpacity style={styles.statItem}>
               <Text style={[styles.statNumber, isDarkMode && styles.statNumberDark]}>{stats.posts}</Text>
               <Text style={[styles.statLabel, isDarkMode && styles.statLabelDark]}>bài viết</Text>
-            </View>
-            <View style={styles.statItem}>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.statItem}
+              onPress={() => setShowFollowersModal(true)}
+              activeOpacity={0.7}
+            >
               <Text style={[styles.statNumber, isDarkMode && styles.statNumberDark]}>{stats.followers.toLocaleString()}</Text>
               <Text style={[styles.statLabel, isDarkMode && styles.statLabelDark]}>người theo dõi</Text>
-            </View>
-            <View style={styles.statItem}>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.statItem}
+              onPress={() => setShowFollowingModal(true)}
+              activeOpacity={0.7}
+            >
               <Text style={[styles.statNumber, isDarkMode && styles.statNumberDark]}>{stats.following}</Text>
               <Text style={[styles.statLabel, isDarkMode && styles.statLabelDark]}>đang theo dõi</Text>
-            </View>
+            </TouchableOpacity>
           </View>
           {loading && (
             <ActivityIndicator size="small" color="#0095F6" style={styles.loadingIndicator} />
@@ -374,6 +396,30 @@ const ProfileScreen = ({ user, currentUser, isDarkMode = false, onLogout, onNavi
             onNavigateToSearch();
           }
         }}
+      />
+
+      {/* Followers Modal */}
+      <FollowersFollowingModal
+        visible={showFollowersModal}
+        type="followers"
+        userId={user?.id}
+        currentUser={currentUser}
+        isDarkMode={isDarkMode}
+        onClose={() => setShowFollowersModal(false)}
+        onViewProfile={handleViewProfile}
+        onFollowChange={handleFollowChange}
+      />
+
+      {/* Following Modal */}
+      <FollowersFollowingModal
+        visible={showFollowingModal}
+        type="following"
+        userId={user?.id}
+        currentUser={currentUser}
+        isDarkMode={isDarkMode}
+        onClose={() => setShowFollowingModal(false)}
+        onViewProfile={handleViewProfile}
+        onFollowChange={handleFollowChange}
       />
     </SafeAreaView>
   );

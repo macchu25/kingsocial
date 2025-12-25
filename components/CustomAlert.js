@@ -61,13 +61,16 @@ const CustomAlert = ({ isDarkMode = false }) => {
   React.useEffect(() => {
     alertRef = {
       show: (titleText, messageText, buttonsArray, optionsObj) => {
+        console.log('CustomAlert.show called:', { titleText, messageText });
         setTitle(titleText || '');
         setMessage(messageText || '');
         setButtons(buttonsArray || [{ text: 'OK' }]);
         setOptions(optionsObj || {});
         setVisible(true);
+        console.log('CustomAlert visible set to true');
       },
       hide: () => {
+        console.log('CustomAlert.hide called');
         setVisible(false);
       },
     };
@@ -104,14 +107,23 @@ const CustomAlert = ({ isDarkMode = false }) => {
     return isDarkMode ? '#fff' : '#000';
   };
 
+  // Debug log
+  React.useEffect(() => {
+    if (visible) {
+      console.log('CustomAlert Modal is visible, title:', title);
+    }
+  }, [visible, title]);
+
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="none"
+      animationType="fade"
       onRequestClose={() => setVisible(false)}
       presentationStyle="overFullScreen"
       statusBarTranslucent={true}
+      hardwareAccelerated={true}
+      onShow={() => console.log('CustomAlert Modal onShow triggered')}
     >
       <View style={styles.overlay}>
         <Animated.View
@@ -128,6 +140,7 @@ const CustomAlert = ({ isDarkMode = false }) => {
             isDarkMode && styles.alertContainerDark,
             {
               transform: [{ scale: scaleAnim }],
+              zIndex: 9999,
             },
           ]}
         >
@@ -200,10 +213,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
+    zIndex: 9999,
   },
   overlayAnimated: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 9998,
   },
   alertContainer: {
     width: width * 0.85,
@@ -219,7 +234,8 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 10,
+    elevation: 100,
+    zIndex: 9999,
   },
   alertContainerDark: {
     backgroundColor: '#1a1a1a',

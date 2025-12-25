@@ -160,7 +160,7 @@ router.get('/:userId/stats', verifyToken, async (req, res) => {
   }
 });
 
-// Get following list
+// Get following list (current user)
 router.get('/following/list', verifyToken, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId);
@@ -174,14 +174,121 @@ router.get('/following/list', verifyToken, async (req, res) => {
 
     const followingIds = currentUser.following || [];
     const followingUsers = await User.find({ _id: { $in: followingIds } })
-      .select('_id username avatar')
+      .select('_id username avatar name')
       .lean();
 
     const followingList = followingUsers.map(user => ({
       id: user._id.toString(),
       username: user.username,
+      name: user.name || user.username,
       avatar: user.avatar || ''
     }));
+
+    res.json({
+      success: true,
+      following: followingList
+    });
+  } catch (error) {
+    console.error('Get following list error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server. Vui lòng thử lại sau.'
+    });
+  }
+});
+
+// Get followers list for a specific user
+router.get('/:userId/followers', verifyToken, async (req, res) => {
+  try {
+    const targetUserId = req.params.userId;
+    const currentUser = await User.findById(req.userId);
+    
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy người dùng hiện tại'
+      });
+    }
+
+    const targetUser = await User.findById(targetUserId);
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy người dùng'
+      });
+    }
+
+    const followersIds = targetUser.followers || [];
+    const followersUsers = await User.find({ _id: { $in: followersIds } })
+      .select('_id username avatar name')
+      .lean();
+
+    // Check follow status for each follower
+    const followersList = followersUsers.map(user => {
+      const isFollowing = currentUser.following.some(
+        id => id.toString() === user._id.toString()
+      );
+      return {
+        id: user._id.toString(),
+        username: user.username,
+        name: user.name || user.username,
+        avatar: user.avatar || '',
+        isFollowing: isFollowing
+      };
+    });
+
+    res.json({
+      success: true,
+      followers: followersList
+    });
+  } catch (error) {
+    console.error('Get followers list error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server. Vui lòng thử lại sau.'
+    });
+  }
+});
+
+// Get following list for a specific user
+router.get('/:userId/following', verifyToken, async (req, res) => {
+  try {
+    const targetUserId = req.params.userId;
+    const currentUser = await User.findById(req.userId);
+    
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy người dùng hiện tại'
+      });
+    }
+
+    const targetUser = await User.findById(targetUserId);
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy người dùng'
+      });
+    }
+
+    const followingIds = targetUser.following || [];
+    const followingUsers = await User.find({ _id: { $in: followingIds } })
+      .select('_id username avatar name')
+      .lean();
+
+    // Check follow status for each following user
+    const followingList = followingUsers.map(user => {
+      const isFollowing = currentUser.following.some(
+        id => id.toString() === user._id.toString()
+      );
+      return {
+        id: user._id.toString(),
+        username: user.username,
+        name: user.name || user.username,
+        avatar: user.avatar || '',
+        isFollowing: isFollowing
+      };
+    });
 
     res.json({
       success: true,

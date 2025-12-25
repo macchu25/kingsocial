@@ -360,25 +360,17 @@ const ChatScreen = ({
   };
 
   return (
-    <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]} edges={['top']}>
+    <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]} edges={['top', 'bottom']}>
       <StatusBar 
         barStyle={isDarkMode ? "light-content" : "dark-content"} 
         translucent={false}
         backgroundColor={isDarkMode ? "#000" : "#fff"}
       />
       
-      {/* Background Image */}
-      <Image 
-        source={CHAT_BACKGROUND} 
-        style={styles.backgroundImage}
-        resizeMode="cover"
-      />
-      <View style={styles.backgroundOverlay} />
-      
       {/* Header */}
       <View style={[styles.header, isDarkMode && styles.headerDark]}>
         <TouchableOpacity onPress={onClose} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={isDarkMode ? "#fff" : "#000"} />
+          <Ionicons name="arrow-back" size={22} color={isDarkMode ? "#fff" : "#000"} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.userInfo}>
           <Image
@@ -395,7 +387,7 @@ const ChatScreen = ({
           </Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.videoButton}>
-          <Ionicons name="videocam-outline" size={24} color={isDarkMode ? "#fff" : "#000"} />
+          <Ionicons name="videocam-outline" size={22} color={isDarkMode ? "#fff" : "#000"} />
         </TouchableOpacity>
       </View>
 
@@ -403,13 +395,21 @@ const ChatScreen = ({
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.messagesContainer}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
+        {/* Background Image - Only in messages area */}
+        <Image 
+          source={CHAT_BACKGROUND} 
+          style={styles.backgroundImage}
+          resizeMode="cover"
+        />
+        <View style={styles.backgroundOverlay} />
         <ScrollView
           ref={scrollViewRef}
           style={styles.messagesList}
           contentContainerStyle={styles.messagesContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           {messages.length === 0 ? (
             <View style={styles.emptyContainer}>
@@ -490,7 +490,7 @@ const ChatScreen = ({
         <View style={[styles.inputContainer, isDarkMode && styles.inputContainerDark]}>
           {!isAIChat && (
             <TouchableOpacity style={styles.attachButton} onPress={handlePickImage}>
-              <Ionicons name="add-circle-outline" size={28} color={isDarkMode ? "#fff" : "#000"} />
+              <Ionicons name="add-circle-outline" size={26} color={isDarkMode ? "#fff" : "#000"} />
             </TouchableOpacity>
           )}
           <TextInput
@@ -502,6 +502,7 @@ const ChatScreen = ({
             onSubmitEditing={handleSendMessage}
             multiline
             maxLength={1000}
+            returnKeyType="send"
           />
           {messageText.trim() || imageBase64 ? (
             <TouchableOpacity 
@@ -512,13 +513,13 @@ const ChatScreen = ({
               {sending ? (
                 <ActivityIndicator size="small" color="#0095F6" />
               ) : (
-                <Ionicons name="send" size={24} color="#0095F6" />
+                <Ionicons name="send" size={22} color="#0095F6" />
               )}
             </TouchableOpacity>
           ) : (
             !isAIChat && (
               <TouchableOpacity style={styles.cameraButton} onPress={handleTakePhoto}>
-                <Ionicons name="camera-outline" size={24} color={isDarkMode ? "#fff" : "#000"} />
+                <Ionicons name="camera-outline" size={22} color={isDarkMode ? "#fff" : "#000"} />
               </TouchableOpacity>
             )
           )}
@@ -556,20 +557,23 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderBottomWidth: 0.5,
     borderBottomColor: 'rgba(219, 219, 219, 0.5)',
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     zIndex: 1,
+    minHeight: 50,
   },
   headerDark: {
     borderBottomColor: 'rgba(51, 51, 51, 0.5)',
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
   },
   backButton: {
-    padding: 5,
-    marginRight: 10,
+    padding: 8,
+    marginRight: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   userInfo: {
     flexDirection: 'row',
@@ -577,9 +581,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     marginRight: 10,
   },
   aiHeaderAvatar: {
@@ -592,7 +596,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerUsername: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#000',
   },
@@ -600,18 +604,22 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   videoButton: {
-    padding: 5,
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   messagesContainer: {
     flex: 1,
     zIndex: 1,
+    position: 'relative',
   },
   messagesList: {
     flex: 1,
   },
   messagesContent: {
-    padding: 15,
-    paddingBottom: 20,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 16,
     flexGrow: 1,
   },
   loadMoreContainer: {
@@ -652,16 +660,16 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   messageBubble: {
-    maxWidth: '75%',
+    maxWidth: '80%',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 9,
     borderRadius: 18,
-    marginBottom: 8,
+    marginBottom: 6,
     borderWidth: 1,
   },
   messageImage: {
-    width: 200,
-    height: 200,
+    width: Math.min(SCREEN_WIDTH * 0.6, 250),
+    height: Math.min(SCREEN_WIDTH * 0.6, 250),
     borderRadius: 12,
     marginBottom: 4,
   },
@@ -694,6 +702,7 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 15,
     lineHeight: 20,
+    letterSpacing: 0.2,
   },
   ownMessageText: {
     color: '#000',
@@ -708,7 +717,7 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   messageTime: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#8e8e8e',
     marginTop: 4,
     alignSelf: 'flex-end',
@@ -719,42 +728,52 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingBottom: Platform.OS === 'ios' ? 8 : 8,
     borderTopWidth: 0.5,
     borderTopColor: 'rgba(219, 219, 219, 0.5)',
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     zIndex: 1,
+    minHeight: 50,
   },
   inputContainerDark: {
     borderTopColor: 'rgba(51, 51, 51, 0.5)',
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
   },
   attachButton: {
-    padding: 5,
-    marginRight: 8,
+    padding: 6,
+    marginRight: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   messageInput: {
     flex: 1,
     maxHeight: 100,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
+    minHeight: 36,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: '#f0f0f0',
     fontSize: 15,
     color: '#000',
+    textAlignVertical: 'center',
   },
   messageInputDark: {
     backgroundColor: '#1a1a1a',
     color: '#fff',
   },
   sendButton: {
-    padding: 5,
-    marginLeft: 8,
+    padding: 6,
+    marginLeft: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   cameraButton: {
-    padding: 5,
-    marginLeft: 8,
+    padding: 6,
+    marginLeft: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   imagePreviewContainer: {
     position: 'relative',
@@ -768,8 +787,8 @@ const styles = StyleSheet.create({
     borderTopColor: '#333',
   },
   imagePreview: {
-    width: 150,
-    height: 150,
+    width: Math.min(SCREEN_WIDTH * 0.4, 150),
+    height: Math.min(SCREEN_WIDTH * 0.4, 150),
     borderRadius: 12,
   },
   removeImageButton: {
