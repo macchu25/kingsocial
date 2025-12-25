@@ -23,37 +23,47 @@ const PostMenuModal = ({
   buttonPosition = { x: 0, y: 0, width: 0, height: 0 }
 }) => {
   const handleDelete = () => {
-    alertDelete(
-      'Xóa bài viết',
-      'Bạn có chắc chắn muốn xóa bài viết này?',
-      async () => {
-        try {
-          if (onDelete) {
-            await onDelete();
+    // Đóng menu modal trước khi hiển thị alert để tránh xung đột Modal trên mobile
+    onClose();
+    
+    // Delay nhỏ để đảm bảo modal đã đóng hoàn toàn trước khi hiển thị alert
+    setTimeout(() => {
+      alertDelete(
+        'Xóa bài viết',
+        'Bạn có chắc chắn muốn xóa bài viết này?',
+        async () => {
+          try {
+            if (onDelete) {
+              await onDelete();
+            }
+          } catch (error) {
+            alertError('Lỗi', 'Không thể xóa bài viết');
           }
-          onClose();
-        } catch (error) {
-          alertError('Lỗi', 'Không thể xóa bài viết');
         }
-      }
-    );
+      );
+    }, 300);
   };
 
   const handleHide = () => {
-    alertInfo(
-      'Ẩn bài viết',
-      'Bạn có muốn ẩn bài viết này khỏi bảng tin của mình không?',
-      async () => {
-        try {
-          if (onHide) {
-            await onHide();
+    // Đóng menu modal trước khi hiển thị alert để tránh xung đột Modal trên mobile
+    onClose();
+    
+    // Delay nhỏ để đảm bảo modal đã đóng hoàn toàn trước khi hiển thị alert
+    setTimeout(() => {
+      alertInfo(
+        'Ẩn bài viết',
+        'Bạn có muốn ẩn bài viết này khỏi bảng tin của mình không?',
+        async () => {
+          try {
+            if (onHide) {
+              await onHide();
+            }
+          } catch (error) {
+            alertError('Lỗi', 'Không thể ẩn bài viết');
           }
-          onClose();
-        } catch (error) {
-          alertError('Lỗi', 'Không thể ẩn bài viết');
         }
-      }
-    );
+      );
+    }, 300);
   };
 
   return (

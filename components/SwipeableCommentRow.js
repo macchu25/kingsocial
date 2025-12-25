@@ -129,7 +129,11 @@ const SwipeableCommentRow = ({
 
   const handleDelete = () => {
     closeSwipe();
-    if (onDelete) onDelete();
+    // Delay nhỏ để đảm bảo swipe animation hoàn thành trước khi hiển thị alert
+    // Điều này giúp tránh xung đột với các component khác trên mobile
+    setTimeout(() => {
+      if (onDelete) onDelete();
+    }, 200);
   };
 
   const handleEdit = () => {
@@ -147,6 +151,8 @@ const SwipeableCommentRow = ({
           <TouchableOpacity
             style={[styles.actionButton, styles.editButton]}
             onPress={handleEdit}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Ionicons name="create-outline" size={20} color="#fff" />
           </TouchableOpacity>
@@ -155,6 +161,8 @@ const SwipeableCommentRow = ({
           <TouchableOpacity
             style={[styles.actionButton, styles.deleteButton]}
             onPress={handleDelete}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Ionicons name="trash-outline" size={20} color="#fff" />
           </TouchableOpacity>

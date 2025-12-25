@@ -110,6 +110,8 @@ const CustomAlert = ({ isDarkMode = false }) => {
       transparent
       animationType="none"
       onRequestClose={() => setVisible(false)}
+      presentationStyle="overFullScreen"
+      statusBarTranslucent={true}
     >
       <View style={styles.overlay}>
         <Animated.View

@@ -64,16 +64,64 @@ app.use(sanitizeInput);
 // Apply rate limiting to all API routes
 app.use('/api', apiLimiter);
 
-// MongoDB connection
+// MongoDB connection with optimized connection pooling
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/expo-app';
+// Optional: MongoDB Read URI for read operations (posts) - uses same DB if not provided
+const MONGODB_READ_URI = process.env.MONGODB_READ_URI || MONGODB_URI;
 
-mongoose.connect(MONGODB_URI)
+const mongooseOptions = {
+  maxPoolSize: 10, // Maintain up to 10 socket connections
+  minPoolSize: 5, // Maintain at least 5 socket connections
+  serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
+  socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+  family: 4, // Use IPv4, skip trying IPv6
+  // Note: bufferMaxEntries and bufferCommands are deprecated in newer MongoDB driver versions
+};
+
+// Optimized options for read operations (posts)
+const mongooseReadOptions = {
+  maxPoolSize: 15, // More connections for read operations
+  minPoolSize: 8, // More minimum connections for read
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+  family: 4,
+  readPreference: 'secondaryPreferred', // Prefer secondary nodes for reads (if replica set)
+};
+
+// Main MongoDB connection (for writes and general operations)
+mongoose.connect(MONGODB_URI, mongooseOptions)
   .then(() => {
-    console.log('✅ Connected to MongoDB');
+    console.log('✅ Connected to MongoDB (Primary) with optimized connection pooling');
+    console.log(`📊 Connection pool: min=${mongooseOptions.minPoolSize}, max=${mongooseOptions.maxPoolSize}`);
   })
   .catch((error) => {
     console.error('❌ MongoDB connection error:', error);
   });
+
+// Separate MongoDB connection for read operations (posts) - faster loading
+let mongooseReadConnection = null;
+if (MONGODB_READ_URI !== MONGODB_URI) {
+  mongooseReadConnection = mongoose.createConnection(MONGODB_READ_URI, mongooseReadOptions);
+  mongooseReadConnection.on('connected', () => {
+    console.log('✅ Connected to MongoDB (Read) with optimized connection pooling');
+    console.log(`📊 Read connection pool: min=${mongooseReadOptions.minPoolSize}, max=${mongooseReadOptions.maxPoolSize}`);
+    
+    // Register models on read connection for faster access
+    const Post = require('./models/Post');
+    const User = require('./models/User');
+    // Models will use read connection when accessed via readConnection.models
+  });
+  mongooseReadConnection.on('error', (error) => {
+    console.error('❌ MongoDB Read connection error:', error);
+    // Fallback to main connection if read connection fails
+    mongooseReadConnection = null;
+  });
+} else {
+  console.log('ℹ️  Using same MongoDB connection for reads (set MONGODB_READ_URI for separate read connection)');
+}
+
+// Make read connection available globally
+global.mongooseReadConnection = mongooseReadConnection;
 
 // Routes
 app.use('/api/auth', authRoutes);

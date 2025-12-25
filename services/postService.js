@@ -56,12 +56,12 @@ export const postService = {
   },
 
       // Thêm comment
-      addComment: async (postId, text, image = null) => {
+      addComment: async (postId, text, image = null, isSensitive = false, sensitiveReason = null) => {
         const headers = await getAuthHeaders();
         const baseUrl = getBaseUrl();
         const response = await axios.post(
           `${baseUrl}/api/posts/${postId}/comment`,
-          { text, image },
+          { text, image, isSensitive, sensitiveReason },
           { headers }
         );
         return response.data;
@@ -79,12 +79,12 @@ export const postService = {
       },
 
       // Cập nhật comment
-      updateComment: async (postId, commentId, text, image = null) => {
+      updateComment: async (postId, commentId, text, image = null, isSensitive = false, sensitiveReason = null) => {
         const headers = await getAuthHeaders();
         const baseUrl = getBaseUrl();
         const response = await axios.put(
           `${baseUrl}/api/posts/${postId}/comment/${commentId}`,
-          { text, image },
+          { text, image, isSensitive, sensitiveReason },
           { headers }
         );
         return response.data;

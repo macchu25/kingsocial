@@ -18,7 +18,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { postService } from '../services/postService';
 import { followService } from '../services/followService';
 import { handleApiError } from '../utils/errorHandler';
-import { alertSuccess, alertInfo } from '../utils/alert';
+import { alertSuccess, alertInfo, alertError } from '../utils/alert';
+import { validatePostContentAI } from '../utils/contentModeration';
 import PostMenuModal from '../components/PostMenuModal';
 import CommentModal from '../components/CommentModal';
 
@@ -188,6 +189,42 @@ const PostDetailScreen = ({ post, currentUser, isDarkMode = false, onClose, onVi
     if (!commentText.trim()) return;
 
     const commentToAdd = commentText.trim();
+
+    // Kiểm tra nội dung nhạy cảm trước khi gửi bình luận
+    const validation = await validatePostContentAI(commentToAdd);
+    
+    if (!validation.isValid) {
+      // Vi phạm mức độ cao - không cho gửi
+      alertError('Không thể gửi bình luận', validation.message);
+      return;
+    }
+
+    // Nếu có cảnh báo mức độ trung bình, hỏi xác nhận
+    if (validation.severity === 'medium') {
+      Alert.alert(
+        'Cảnh báo',
+        validation.message + '\n\nBạn có muốn tiếp tục gửi bình luận không?',
+        [
+          {
+            text: 'Hủy',
+            style: 'cancel',
+          },
+          {
+            text: 'Gửi',
+            onPress: async () => {
+              await proceedWithComment(commentToAdd);
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    // Gửi bình luận bình thường
+    await proceedWithComment(commentToAdd);
+  };
+
+  const proceedWithComment = async (commentToAdd) => {
     setCommenting(true);
     const tempComment = {
       id: Date.now(),

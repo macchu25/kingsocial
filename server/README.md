@@ -17,9 +17,38 @@ cp .env.example .env
 ```
 
 2. Cập nhật các giá trị trong `.env`:
-- `MONGODB_URI`: Đường dẫn kết nối MongoDB (mặc định: mongodb://localhost:27017/expo-app)
+- `MONGODB_URI`: Đường dẫn kết nối MongoDB chính (mặc định: mongodb://localhost:27017/expo-app)
+- `MONGODB_READ_URI`: (Tùy chọn) Đường dẫn kết nối MongoDB riêng cho đọc posts - giúp tăng tốc load posts. Nếu không set, sẽ dùng `MONGODB_URI`
 - `JWT_SECRET`: Secret key cho JWT (nên thay đổi trong production)
 - `PORT`: Port chạy server (mặc định: 3000)
+
+### Tối ưu hiệu năng với MongoDB Read Connection
+
+Để tăng tốc độ load posts, bạn có thể sử dụng một MongoDB connection riêng cho read operations:
+
+**Cách 1: Sử dụng MongoDB Replica Set (Khuyến nghị)**
+```env
+MONGODB_URI=mongodb://primary-host:27017/expo-app
+MONGODB_READ_URI=mongodb://secondary-host:27017/expo-app?readPreference=secondaryPreferred
+```
+
+**Cách 2: Sử dụng MongoDB instance riêng cho đọc**
+```env
+MONGODB_URI=mongodb://write-host:27017/expo-app
+MONGODB_READ_URI=mongodb://read-host:27017/expo-app
+```
+
+**Cách 3: Sử dụng cùng database nhưng connection pool riêng**
+```env
+MONGODB_URI=mongodb://localhost:27017/expo-app
+MONGODB_READ_URI=mongodb://localhost:27017/expo-app
+```
+
+**Lợi ích:**
+- Connection pool riêng cho read operations (15 connections thay vì 10)
+- Phân tải read/write operations
+- Tăng tốc độ load posts đáng kể
+- Tự động fallback về main connection nếu read connection lỗi
 
 ### Cấu hình Email (Cho chức năng quên mật khẩu)
 

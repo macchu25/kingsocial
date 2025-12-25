@@ -19,6 +19,14 @@ const commentSchema = new mongoose.Schema({
   image: {
     type: String,
     default: ''
+  },
+  isSensitive: {
+    type: Boolean,
+    default: false
+  },
+  sensitiveReason: {
+    type: String,
+    default: null
   }
 }, {
   timestamps: true
@@ -78,6 +86,11 @@ postSchema.virtual('commentsCount').get(function() {
 
 // Ensure virtuals are included in JSON
 postSchema.set('toJSON', { virtuals: true });
+
+// Add indexes for better query performance
+postSchema.index({ userId: 1, createdAt: -1 }); // For user posts queries
+postSchema.index({ type: 1, createdAt: -1 }); // For filtering by type
+postSchema.index({ createdAt: -1 }); // For general post listing
 
 module.exports = mongoose.model('Post', postSchema);
 

@@ -7,22 +7,61 @@ const Notification = require('../models/Notification');
 
 const { verifyToken } = require('../middleware/auth');
 const { validatePost, validateComment } = require('../middleware/validator');
+const { getReadModel } = require('../utils/dbConnection');
 
-// Get all posts
+// Get all posts with pagination and optimized queries
 router.get('/', verifyToken, async (req, res) => {
   try {
-    const { type } = req.query; // Optional filter by type (post/reel)
+    const { type, page = 1, limit = 20 } = req.query; // Pagination support
     const query = {};
     if (type && (type === 'post' || type === 'reel')) {
       query.type = type;
     }
     
-    const posts = await Post.find(query)
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+    
+    // Use read connection for faster post loading
+    const PostRead = getReadModel('Post', Post);
+    const UserRead = getReadModel('User', User);
+    
+    // Get posts with pagination using read connection
+    const posts = await PostRead.find(query)
       .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum)
       .populate('userId', 'username name avatar')
       .lean();
 
-    const formattedPosts = await Promise.all(posts.map(async (post) => {
+    // Collect all unique user IDs from comments for batch loading
+    const commentUserIds = new Set();
+    posts.forEach(post => {
+      if (post.comments && post.comments.length > 0) {
+        const recentComments = post.comments.slice(-2);
+        recentComments.forEach(comment => {
+          if (comment.userId) {
+            commentUserIds.add(comment.userId.toString());
+          }
+        });
+      }
+    });
+
+    // Batch load all user avatars in one query using read connection (optimized!)
+    const userIdsArray = Array.from(commentUserIds);
+    const usersMap = new Map();
+    if (userIdsArray.length > 0) {
+      const users = await UserRead.find({ 
+        _id: { $in: userIdsArray } 
+      }).select('_id avatar').lean();
+      
+      users.forEach(user => {
+        usersMap.set(user._id.toString(), user.avatar);
+      });
+    }
+
+    // Format posts using the pre-loaded user data
+    const formattedPosts = posts.map(post => {
       // Get user info if userId is populated
       let username = post.username;
       let userAvatar = post.userAvatar || '';
@@ -37,6 +76,36 @@ router.get('/', verifyToken, async (req, res) => {
         ? post.images 
         : (post.image ? [post.image] : []);
       
+      // Format comments using pre-loaded user avatars (no individual queries!)
+      // Filter sensitive comments - only show to comment owner
+      const currentUserIdStr = req.userId.toString();
+      const commentsList = (post.comments?.slice(-2) || [])
+        .filter(comment => {
+          // Show sensitive comments only to the comment owner
+          if (comment.isSensitive === true) {
+            const commentUserId = comment.userId?.toString() || comment.userId?.toString() || String(comment.userId);
+            // Only show sensitive comment to its owner
+            return commentUserId === currentUserIdStr;
+          }
+          return true;
+        })
+        .map(comment => {
+          const commentUserId = comment.userId?.toString() || comment.userId?.toString() || String(comment.userId);
+          const avatar = usersMap.get(commentUserId);
+          const userAvatar = (avatar && avatar.trim() !== '') ? avatar : null;
+          
+          return {
+            id: comment._id?.toString() || comment._id,
+            userId: commentUserId,
+            username: comment.username,
+            text: comment.text || '',
+            image: comment.image || '',
+            avatar: userAvatar,
+            isSensitive: comment.isSensitive === true, // Explicitly check for true
+            sensitiveReason: comment.sensitiveReason || null
+          };
+        });
+      
       return {
         id: post._id.toString(),
         userId: post.userId?._id?.toString() || post.userId?.toString() || post.userId,
@@ -49,32 +118,23 @@ router.get('/', verifyToken, async (req, res) => {
         likes: post.likes?.length || 0,
         isLiked: post.likes?.some(like => like.toString() === req.userId) || false,
         comments: post.comments?.length || 0,
-        commentsList: await Promise.all((post.comments?.slice(-2) || []).map(async (comment) => {
-          let userAvatar = null;
-          if (comment.userId) {
-            try {
-              const commentUser = await User.findById(comment.userId).lean();
-              userAvatar = (commentUser?.avatar && commentUser.avatar.trim() !== '') ? commentUser.avatar : null;
-            } catch (err) {
-              // Silent fail
-            }
-          }
-          return {
-            id: comment._id?.toString() || comment._id,
-            userId: comment.userId?.toString() || comment.userId,
-            username: comment.username,
-            text: comment.text || '',
-            image: comment.image || '',
-            avatar: userAvatar
-          };
-        })),
+        commentsList: commentsList,
         createdAt: post.createdAt
       };
-    }));
+    });
+
+    // Get total count for pagination info
+    const totalPosts = await Post.countDocuments(query);
 
     res.json({
       success: true,
-      posts: formattedPosts
+      posts: formattedPosts,
+      pagination: {
+        currentPage: pageNum,
+        totalPages: Math.ceil(totalPosts / limitNum),
+        totalPosts: totalPosts,
+        hasMore: skip + limitNum < totalPosts
+      }
     });
   } catch (error) {
     console.error('Get posts error:', error);
@@ -234,7 +294,7 @@ router.post('/:postId/like', verifyToken, async (req, res) => {
 // Add comment
 router.post('/:postId/comment', verifyToken, validateComment, async (req, res) => {
   try {
-    const { text, image } = req.body;
+    const { text, image, isSensitive, sensitiveReason } = req.body;
 
     if ((!text || text.trim().length === 0) && (!image || image.trim().length === 0)) {
       return res.status(400).json({
@@ -271,7 +331,9 @@ router.post('/:postId/comment', verifyToken, validateComment, async (req, res) =
       userId: req.userId,
       username: user.username,
       text: commentText,
-      image: image || ''
+      image: image || '',
+      isSensitive: isSensitive || false,
+      sensitiveReason: sensitiveReason || null
     });
 
     // Extract mentions from comment text (@username)
@@ -354,6 +416,8 @@ router.post('/:postId/comment', verifyToken, validateComment, async (req, res) =
         text: newComment.text || '',
         image: newComment.image || '',
         avatar: user.avatar || '',
+        isSensitive: newComment.isSensitive || false,
+        sensitiveReason: newComment.sensitiveReason || null,
         createdAt: newComment.createdAt
       },
       commentsCount: post.comments.length
@@ -417,7 +481,7 @@ router.delete('/:postId/comment/:commentId', verifyToken, async (req, res) => {
 // Update comment
 router.put('/:postId/comment/:commentId', verifyToken, async (req, res) => {
   try {
-    const { text, image } = req.body;
+    const { text, image, isSensitive, sensitiveReason } = req.body;
 
     if ((!text || text.trim().length === 0) && (!image || image.trim().length === 0)) {
       return res.status(400).json({
@@ -463,6 +527,12 @@ router.put('/:postId/comment/:commentId', verifyToken, async (req, res) => {
     if (image !== undefined) {
       comment.image = image || '';
     }
+    if (isSensitive !== undefined) {
+      comment.isSensitive = isSensitive;
+    }
+    if (sensitiveReason !== undefined) {
+      comment.sensitiveReason = sensitiveReason;
+    }
 
     await post.save();
 
@@ -478,6 +548,8 @@ router.put('/:postId/comment/:commentId', verifyToken, async (req, res) => {
         text: comment.text || '',
         image: comment.image || '',
         avatar: user?.avatar || '',
+        isSensitive: comment.isSensitive || false,
+        sensitiveReason: comment.sensitiveReason || null,
         createdAt: comment.createdAt
       }
     });
@@ -503,7 +575,10 @@ router.get('/user/:userId', verifyToken, async (req, res) => {
       });
     }
 
-    const posts = await Post.find({ userId: userId })
+    // Use read connection for faster post loading
+    const PostRead = getReadModel('Post', Post);
+    
+    const posts = await PostRead.find({ userId: userId })
       .sort({ createdAt: -1 })
       .lean();
 
@@ -555,7 +630,11 @@ router.get('/:postId', verifyToken, async (req, res) => {
       });
     }
 
-    const post = await Post.findById(postId)
+    // Use read connection for faster post loading
+    const PostRead = getReadModel('Post', Post);
+    const UserRead = getReadModel('User', User);
+
+    const post = await PostRead.findById(postId)
       .populate('userId', 'username name avatar')
       .lean();
 
@@ -575,27 +654,57 @@ router.get('/:postId', verifyToken, async (req, res) => {
       userAvatar = post.userId.avatar || post.userAvatar || '';
     }
 
-    // Format all comments with user avatars
-    const allComments = await Promise.all((post.comments || []).map(async (comment) => {
-      let userAvatar = null;
+    // Collect all unique user IDs from comments for batch loading
+    const commentUserIds = new Set();
+    (post.comments || []).forEach(comment => {
       if (comment.userId) {
-        try {
-          const commentUser = await User.findById(comment.userId).lean();
-          userAvatar = (commentUser?.avatar && commentUser.avatar.trim() !== '') ? commentUser.avatar : null;
-        } catch (err) {
-          // Silent fail
-        }
+        commentUserIds.add(comment.userId.toString());
       }
-      return {
-        id: comment._id?.toString() || comment._id,
-        userId: comment.userId?.toString() || comment.userId,
-        username: comment.username,
-        text: comment.text || '',
-        image: comment.image || '',
-        avatar: userAvatar,
-        createdAt: comment.createdAt
-      };
-    }));
+    });
+
+    // Batch load all user avatars in one query using read connection (optimized!)
+    const userIdsArray = Array.from(commentUserIds);
+    const usersMap = new Map();
+    if (userIdsArray.length > 0) {
+      const users = await UserRead.find({ 
+        _id: { $in: userIdsArray } 
+      }).select('_id avatar').lean();
+      
+      users.forEach(user => {
+        usersMap.set(user._id.toString(), user.avatar);
+      });
+    }
+
+    // Format all comments using pre-loaded user avatars (no individual queries!)
+    // Filter sensitive comments - only show to comment owner
+    const currentUserIdStr = req.userId.toString();
+    const allComments = (post.comments || [])
+      .filter(comment => {
+        // Show sensitive comments only to the comment owner
+        if (comment.isSensitive === true) {
+          const commentUserId = comment.userId?.toString() || comment.userId?.toString() || String(comment.userId);
+          // Only show sensitive comment to its owner
+          return commentUserId === currentUserIdStr;
+        }
+        return true;
+      })
+      .map(comment => {
+        const commentUserId = comment.userId?.toString() || comment.userId?.toString() || String(comment.userId);
+        const avatar = usersMap.get(commentUserId);
+        const userAvatar = (avatar && avatar.trim() !== '') ? avatar : null;
+        
+        return {
+          id: comment._id?.toString() || comment._id,
+          userId: commentUserId,
+          username: comment.username,
+          text: comment.text || '',
+          image: comment.image || '',
+          avatar: userAvatar,
+          isSensitive: comment.isSensitive === true, // Explicitly check for true
+          sensitiveReason: comment.sensitiveReason || null,
+          createdAt: comment.createdAt
+        };
+      });
 
     // Get images array, fallback to single image for backward compatibility
     const images = post.images && post.images.length > 0 

@@ -13,13 +13,15 @@ import {
   Platform,
   Animated,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { postService } from '../services/postService';
 import { handleApiError } from '../utils/errorHandler';
-import { alertError } from '../utils/alert';
+import { alertError, alertDelete } from '../utils/alert';
+import { validatePostContentAI } from '../utils/contentModeration';
 import SwipeableCommentRow from './SwipeableCommentRow';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -63,9 +65,28 @@ const CommentModal = ({
       const response = await postService.getPostById(post.id);
       if (response.success && response.post) {
         const commentsList = response.post.commentsList || [];
-        setComments(commentsList);
+        // Ensure isSensitive flag is preserved for all comments
+        // Backend already filters sensitive comments, so all comments here are safe to show
+        const commentsWithSensitive = commentsList.map(comment => ({
+          ...comment,
+          isSensitive: comment.isSensitive === true, // Explicitly check for true (boolean)
+          sensitiveReason: comment.sensitiveReason || null
+        }));
+        
+        // Log sensitive comments for debugging
+        const sensitiveComments = commentsWithSensitive.filter(c => c.isSensitive === true);
+        if (sensitiveComments.length > 0) {
+          console.log('Found sensitive comments:', sensitiveComments.map(c => ({ 
+            id: c.id, 
+            userId: c.userId, 
+            currentUserId: currentUser?.id,
+            isSensitive: c.isSensitive,
+            isOwner: c.userId === currentUser?.id
+          })));
+        }
+        
+        setComments(commentsWithSensitive);
         setCommentsCount(response.post.comments || 0);
-        console.log('Loaded comments:', commentsList.length);
       }
     } catch (error) {
       console.error('Error loading comments:', error);
@@ -123,21 +144,25 @@ const CommentModal = ({
   };
 
   const handleDeleteComment = async (commentId) => {
-    alertDelete(
-      'Xóa bình luận',
-      'Bạn có chắc chắn muốn xóa bình luận này?',
-      async () => {
-        try {
-          const response = await postService.deleteComment(post.id, commentId);
-          if (response.success) {
-            setComments(comments.filter(c => c.id !== commentId));
-            setCommentsCount(response.commentsCount);
+    // SwipeableCommentRow đã tự đóng swipe trước khi gọi onDelete
+    // Chỉ cần delay nhỏ để đảm bảo animation hoàn thành và CustomAlert hiển thị đúng trên mobile
+    setTimeout(() => {
+      alertDelete(
+        'Xóa bình luận',
+        'Bạn có chắc chắn muốn xóa bình luận này?',
+        async () => {
+          try {
+            const response = await postService.deleteComment(post.id, commentId);
+            if (response.success) {
+              setComments(comments.filter(c => c.id !== commentId));
+              setCommentsCount(response.commentsCount);
+            }
+          } catch (error) {
+            handleApiError(error);
           }
-        } catch (error) {
-          handleApiError(error);
         }
-      }
-    );
+      );
+    }, 300);
   };
 
   const handleEditComment = (comment) => {
@@ -157,12 +182,39 @@ const CommentModal = ({
   const handleSaveEdit = async () => {
     if ((!editText.trim() && !editImageBase64) || !editingComment) return;
 
+    const editedText = editText.trim();
+    let isSensitive = false;
+    let sensitiveReason = null;
+
+    // Kiểm tra nội dung nhạy cảm trước khi lưu chỉnh sửa (chỉ khi có text)
+    if (editedText) {
+      try {
+        const validation = await validatePostContentAI(editedText);
+        
+        // Đánh dấu là sensitive nếu có vi phạm (nhưng vẫn cho phép lưu)
+        if (validation.severity !== 'none') {
+          isSensitive = true;
+          sensitiveReason = validation.message;
+        }
+      } catch (error) {
+        // Nếu validation có lỗi, vẫn cho phép lưu
+        console.warn('Comment edit validation error:', error);
+      }
+    }
+
+    // Lưu chỉnh sửa (vẫn cho phép lưu dù có sensitive)
+    await proceedWithEdit(editedText, isSensitive, sensitiveReason);
+  };
+
+  const proceedWithEdit = async (editedText, isSensitive = false, sensitiveReason = null) => {
     try {
       const response = await postService.updateComment(
         post.id, 
         editingComment.id, 
-        editText.trim(), 
-        editImageBase64
+        editedText, 
+        editImageBase64,
+        isSensitive,
+        sensitiveReason
       );
       if (response.success) {
         setComments(comments.map(c => 
@@ -209,6 +261,30 @@ const CommentModal = ({
     if ((!commentText.trim() && !imageBase64) || !post?.id) return;
 
     const commentToAdd = commentText.trim();
+    let isSensitive = false;
+    let sensitiveReason = null;
+
+    // Kiểm tra nội dung nhạy cảm trước khi gửi bình luận (chỉ khi có text)
+    if (commentToAdd) {
+      try {
+        const validation = await validatePostContentAI(commentToAdd);
+        
+        // Đánh dấu là sensitive nếu có vi phạm (nhưng vẫn cho phép đăng)
+        if (validation.severity !== 'none') {
+          isSensitive = true;
+          sensitiveReason = validation.message;
+        }
+      } catch (error) {
+        // Nếu validation có lỗi, vẫn cho phép gửi
+        console.warn('Comment validation error:', error);
+      }
+    }
+
+    // Gửi bình luận (vẫn cho phép đăng dù có sensitive)
+    await proceedWithComment(commentToAdd, isSensitive, sensitiveReason);
+  };
+
+  const proceedWithComment = async (commentToAdd, isSensitive = false, sensitiveReason = null) => {
     setCommenting(true);
     const tempComment = {
       id: `temp-${Date.now()}`,
@@ -217,6 +293,8 @@ const CommentModal = ({
       avatar: currentUser?.avatar || '',
       text: commentToAdd,
       image: selectedImage ? imageBase64 : null,
+      isSensitive: isSensitive,
+      sensitiveReason: sensitiveReason,
       createdAt: new Date().toISOString(),
     };
     const updatedComments = [...comments, tempComment];
@@ -226,20 +304,37 @@ const CommentModal = ({
     setImageBase64(null);
 
     try {
-      const response = await postService.addComment(post.id, commentToAdd, imageBase64);
+      const response = await postService.addComment(post.id, commentToAdd, imageBase64, isSensitive, sensitiveReason);
       if (response.success) {
-        // Replace temp comment with real comment from server
-        setComments([...comments, response.comment]);
+        // Replace temp comment with real comment from server (ensure isSensitive is preserved)
+        const newComment = {
+          ...response.comment,
+          isSensitive: response.comment.isSensitive !== undefined ? response.comment.isSensitive : isSensitive,
+          sensitiveReason: response.comment.sensitiveReason || sensitiveReason
+        };
+        console.log('New comment created:', { 
+          id: newComment.id, 
+          isSensitive: newComment.isSensitive, 
+          reason: newComment.sensitiveReason 
+        });
+        
+        // Update comments: replace temp comment with real one
+        setComments(prevComments => {
+          // Remove temp comment and add real one
+          const filtered = prevComments.filter(c => !c.id?.toString().startsWith('temp-'));
+          return [...filtered, newComment];
+        });
         setCommentsCount(response.commentsCount);
-        // Reload all comments
-        loadComments();
+        
+        // Don't reload immediately - keep the sensitive flag visible
+        // Only reload if needed (e.g., when modal is reopened)
       } else {
         // Remove temp comment on error
-        setComments(comments);
+        setComments(comments.filter(c => !c.id?.toString().startsWith('temp-')));
       }
     } catch (error) {
       // Remove temp comment on error
-      setComments(comments);
+      setComments(comments.filter(c => !c.id?.toString().startsWith('temp-')));
       handleApiError(error);
     } finally {
       setCommenting(false);
@@ -338,6 +433,7 @@ const CommentModal = ({
                   const isPostOwner = post?.userId === currentUser?.id;
                   const canEdit = isCommentOwner;
                   const canDelete = isCommentOwner || isPostOwner;
+                  const isSensitive = comment.isSensitive === true; // Explicitly check for true boolean
 
                   return (
                     <SwipeableCommentRow
@@ -349,7 +445,10 @@ const CommentModal = ({
                       isDarkMode={isDarkMode}
                       backgroundColor={isDarkMode ? '#1a1a1a' : '#fff'}
                     >
-                      <View style={styles.commentItem}>
+                      <View style={[
+                        styles.commentItem,
+                        isSensitive && styles.commentItemSensitive
+                      ]}>
                         <TouchableOpacity
                           onPress={() => {
                             if (onViewProfile && comment.userId) {
@@ -365,7 +464,10 @@ const CommentModal = ({
                                 ? { uri: comment.avatar }
                                 : DEFAULT_AVATAR
                             }
-                            style={styles.commentAvatar}
+                            style={[
+                              styles.commentAvatar,
+                              isSensitive && styles.commentAvatarSensitive
+                            ]}
                             defaultSource={DEFAULT_AVATAR}
                           />
                           <View style={styles.commentContent}>
@@ -377,26 +479,57 @@ const CommentModal = ({
                                   }
                                 }}
                               >
-                                <Text style={[styles.commentUsername, isDarkMode && styles.commentUsernameDark]}>
+                                <Text style={[
+                                  styles.commentUsername, 
+                                  isDarkMode && styles.commentUsernameDark,
+                                  isSensitive && styles.commentUsernameSensitive
+                                ]}>
                                   {comment.username}
                                 </Text>
                               </TouchableOpacity>
-                              <Text style={[styles.commentTime, isDarkMode && styles.commentTimeDark]}>
+                              <Text style={[
+                                styles.commentTime, 
+                                isDarkMode && styles.commentTimeDark,
+                                isSensitive && styles.commentTimeSensitive
+                              ]}>
                                 {formatTime(comment.createdAt)}
                               </Text>
                             </View>
-                            <Text style={[styles.commentText, isDarkMode && styles.commentTextDark]}>
+                            {isSensitive && (
+                              <View style={styles.sensitiveWarning}>
+                                <Ionicons 
+                                  name="warning-outline" 
+                                  size={14} 
+                                  color="#FF6B6B" 
+                                />
+                                <Text style={styles.sensitiveWarningText}>
+                                  Ngôn ngữ nhạy cảm
+                                </Text>
+                              </View>
+                            )}
+                            <Text style={[
+                              styles.commentText, 
+                              isDarkMode && styles.commentTextDark,
+                              isSensitive && styles.commentTextSensitive
+                            ]}>
                               {comment.text}
                             </Text>
                             {comment.image && (
                               <Image
                                 source={{ uri: comment.image }}
-                                style={styles.commentImage}
+                                style={[
+                                  styles.commentImage,
+                                  isSensitive && styles.commentImageSensitive
+                                ]}
                                 resizeMode="cover"
                               />
                             )}
                             <TouchableOpacity style={styles.replyButton}>
-                              <Text style={[styles.replyText, isDarkMode && styles.replyTextDark]}>
+                              <Text style={[
+                                styles.replyText, 
+                                isDarkMode && styles.replyTextDark,
+                                isSensitive && styles.replyTextSensitive
+                              ]}>
                                 Trả lời
                               </Text>
                             </TouchableOpacity>
@@ -405,7 +538,7 @@ const CommentModal = ({
                             <Ionicons 
                               name="heart-outline" 
                               size={16} 
-                              color={isDarkMode ? "#fff" : "#000"} 
+                              color={isSensitive ? "#999" : (isDarkMode ? "#fff" : "#000")} 
                             />
                           </TouchableOpacity>
                         </TouchableOpacity>
@@ -892,6 +1025,44 @@ const styles = StyleSheet.create({
   },
   editEmojiButton: {
     padding: 5,
+  },
+  // Styles for sensitive comments
+  commentItemSensitive: {
+    opacity: 0.6,
+  },
+  commentAvatarSensitive: {
+    opacity: 0.7,
+  },
+  commentUsernameSensitive: {
+    opacity: 0.7,
+  },
+  commentTimeSensitive: {
+    opacity: 0.6,
+  },
+  commentTextSensitive: {
+    opacity: 0.7,
+  },
+  commentImageSensitive: {
+    opacity: 0.6,
+  },
+  replyTextSensitive: {
+    opacity: 0.6,
+  },
+  sensitiveWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginBottom: 6,
+    marginTop: 2,
+  },
+  sensitiveWarningText: {
+    fontSize: 12,
+    color: '#FF6B6B',
+    marginLeft: 4,
+    fontWeight: '500',
   },
 });
 
